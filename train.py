@@ -10,7 +10,7 @@ from myModels import get_model
 def myaccn(pred, true, n):
     total = len(true)
     correct = 0
-    for i, p in tqdm(enumerate(pred), total=len(pred)):
+    for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
         sorted_indices = (-p).argsort()
         top_k_indices = sorted_indices[:n]  
         if true[i] in top_k_indices:
