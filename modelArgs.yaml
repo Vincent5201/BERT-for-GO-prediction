@@ -95,3 +95,17 @@ ST:
     num_heads: [2,4,8,16]
     depths: [2,2,6,2]
     cnn_channels: 64
+
+GPT:
+  small:
+    hidden_size: 96
+    layers: 9
+  mid:
+    hidden_size: 256
+    layers: 5
+  large:
+    hidden_size: 384
+    layers: 7
+  other:
+    hidden_size: 384
+    layers: 7

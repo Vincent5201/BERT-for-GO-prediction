@@ -1,10 +1,10 @@
-from transformers import BertModel, BertConfig
+from transformers import BertModel, BertConfig, GPT2Config, GPT2Model
 import torch.nn as nn
 import torch
 import yaml
 import torch.nn.functional as F
-from transformers import ViTModel, ViTConfig
-from transformers import Swinv2Config, Swinv2Model, ResNetConfig, ResNetModel
+from transformers import ViTModel, ViTConfig, Swinv2Config, Swinv2Model
+
 
 class Bert_Go(nn.Module):
     def __init__(self, config, num_labels):
@@ -12,9 +12,21 @@ class Bert_Go(nn.Module):
         self.bert = BertModel(config)
         self.linear1 = nn.Linear(config.hidden_size, 512)
         self.linear2 = nn.Linear(512, num_labels)
-        self.relu = nn.ReLU()
     def forward(self, x, m):
         output = self.bert(input_ids=x, attention_mask=m)["last_hidden_state"]
+        logits = torch.mean(output, dim=1)
+        logits = self.linear1(logits)
+        logits = self.linear2(logits)
+        return logits
+    
+class GPT_Go(nn.Module):
+    def __init__(self, config, num_labels):
+        super(GPT_Go, self).__init__()
+        self.gpt = GPT2Model(config)
+        self.linear1 = nn.Linear(config.hidden_size, 512)
+        self.linear2 = nn.Linear(512, num_labels)
+    def forward(self, x, m):
+        output = self.gpt(input_ids=x, past_key_values=None, attention_mask=m)["last_hidden_state"]
         logits = torch.mean(output, dim=1)
         logits = self.linear1(logits)
         logits = self.linear2(logits)
@@ -156,11 +168,23 @@ def get_model(name, level):
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]
         config.num_hidden_layers = args["num_hidden_layers"]
-        config.vocab_size = 362
+        config.vocab_size = 364
         config.num_attention_heads = 1
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
         model = Bert_Go(config, 361)
+    elif name == 'GPT':
+        config = GPT2Config()
+        config.n_embd = args["hidden_size"]
+        config.n_layer= args["layers"]
+        
+        config.n_head = 1
+        config.vocab_size = 364
+        config.n_positions = 512
+        config.bos_token_id = 363
+        config.eos_token_id = 362
+        model = GPT_Go(config, 361)
+
     elif name == 'ResNet':
         res_channel = args["res_channel"]
         layers = args["layers"]
@@ -209,16 +233,17 @@ def get_model(name, level):
         config.depths = args["depths"]
         config.num_channels = args["cnn_channels"]
         
+        in_channel = 16
+        kernal_size = 7
         config.image_size = 19
         config.patch_size = 1
         config.embed_dim = 64
-        config.window_size = 3
         config.encoder_stride = 1
         model = myST(config, in_channel, config.num_channels, kernal_size)
     
     return model
 
 if __name__ == "__main__":
-    model = get_model("ResNet2", "other")
+    model = get_model("GPT", "other")
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total Parameters: {total_params}")

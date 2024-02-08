@@ -345,8 +345,10 @@ class WordsDataset(Dataset):
                 last += 1
             last -= 1
             y[i] = gamesall[i][last]-1
-            gamesall[i][last] = 0
+            gamesall[i][last] = 362
         print("data finish")
+        gamesall = np.array(gamesall)
+        gamesall = np.insert(gamesall, 0, 363, axis=1)
 
         self.x = torch.tensor(gamesall).long()
         self.y = (torch.tensor(y)).long()
