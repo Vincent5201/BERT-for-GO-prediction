@@ -98,7 +98,7 @@ class myViT(nn.Module):
         y = F.relu(self.bn2(y),inplace=True)
         y = self.vit(y)
         y = y["last_hidden_state"]
-        y = self.pool(y).squeeze()
+        y = self.pool(y).squeeze(2)
         y = self.linear(y)
         return y
 
