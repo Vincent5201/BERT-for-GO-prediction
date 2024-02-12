@@ -102,34 +102,15 @@ class myViT(nn.Module):
         y = self.linear(y)
         return y
 
-class ResNetxViT(nn.Module):
-    def __init__(self, config, in_channels, res_channels, res_layers, cnn_channels, kernal_size):
-        super(ResNetxViT, self).__init__()
-        self.cnn_input = ConvBlock(in_channels, res_channels, 3)
-        self.residual_tower = nn.Sequential(
-            *[ResBlock(res_channels, res_channels) for _ in range(res_layers)]
-        )
-        self.policy_cnn = ConvBlock(res_channels, 2, 1)
-        self.policy_fc = nn.Linear(2 * 19 * 19, 19 * 19 + 1)
-        self.vit = ViTModel(config)
-        self.pool = nn.Linear(config.hidden_size,1)
-        self.cnn1 = nn.Conv2d(in_channels,cnn_channels,kernel_size=kernal_size, padding=int((kernal_size-1)/2))
-        self.cnn2 = nn.Conv2d(cnn_channels,config.hidden_size,kernel_size=kernal_size, padding=int((kernal_size-1)/2))
-        self.bn1 = nn.BatchNorm2d(cnn_channels)
-        self.bn2 = nn.BatchNorm2d(config.hidden_size)
-        self.output = nn.Linear(724,361)
+class Mix(nn.Module):
+    def __init__(self, model1, model2):
+        super(Mix, self).__init__()
+        self.model1 = model1
+        self.model2 = model2
+        self.output = nn.Linear(722,361)
     def forward(self, x):
-        y1 = self.cnn_input(x)
-        y1 = self.residual_tower(y1)
-        y1 = self.policy_cnn(y1)
-        y1 = self.policy_fc(torch.flatten(y1, start_dim=1))
-        y2 = self.cnn1(x)
-        y2 = self.bn1(y2)
-        y2 = self.cnn2(y2)
-        y2 = F.relu(self.bn2(y2),inplace=True)
-        y2 = self.vit(y2)
-        y2 = y2["last_hidden_state"]
-        y2 = self.pool(y2).squeeze(2)
+        y1 = self.model1(x)
+        y2 = self.model2(x)
         y = torch.cat([y1,y2],dim = -1)
         y = self.output(y)
         return y
@@ -162,7 +143,8 @@ class myST(nn.Module):
 def get_model(name, level):
     with open('modelArgs.yaml', 'r') as file:
         args = yaml.safe_load(file)
-    args = args[name][level]
+    if not ("x" in name):
+        args = args[name][level]
 
     if name == 'BERT':
         config = BertConfig() 
@@ -178,13 +160,12 @@ def get_model(name, level):
         config.n_embd = args["hidden_size"]
         config.n_layer= args["layers"]
         
-        config.n_head = 1
+        config.n_head = 8
         config.vocab_size = 364
         config.n_positions = 512
         config.bos_token_id = 363
         config.eos_token_id = 362
         model = GPT_Go(config, 361)
-
     elif name == 'ResNet':
         res_channel = args["res_channel"]
         layers = args["layers"]
@@ -207,25 +188,6 @@ def get_model(name, level):
         config.attention_probs_dropout_prob = 0.1
         kernal_size = 3
         model = myViT(config, in_channel, cnn_channel, kernal_size)
-    elif name == 'ResNetxViT':
-        config = ViTConfig()
-        res_channel = args["res_channel"]
-        res_layers = args["res_layer"]
-        config.hidden_size = args["hidden_size"]
-        config.num_channels = args["vit_channels"]
-        cnn_channels = args["cnn_channels"]
-
-        config.image_size = 19
-        config.patch_size = 1
-        config.encoder_stride = 1
-        config.num_hidden_layers = layers
-        config.num_attention_heads = 1
-        config.hidden_dropout_prob = 0.1
-        config.intermediate_size = config.hidden_size* 4 
-        config.attention_probs_dropout_prob = 0.1
-        in_channel = 16
-        kernal_size = 3
-        model = ResNetxViT(config, in_channel, res_channel, res_layers, cnn_channels, kernal_size)
     elif name == "ST":
         config = Swinv2Config()
         config.num_layers = args["num_layers"]
@@ -240,6 +202,14 @@ def get_model(name, level):
         config.embed_dim = 64
         config.encoder_stride = 1
         model = myST(config, in_channel, config.num_channels, kernal_size)
+    elif name == 'ResNetxST':
+        model1 = get_model("ST", level)
+        model2 = get_model("ResNet", level)
+        model = Mix(model1, model2)
+    elif name == 'ViTxST':
+        model1 = get_model("ST", level)
+        model2 = get_model("ViT", level)
+        model = Mix(model1, model2)
     
     return model
 

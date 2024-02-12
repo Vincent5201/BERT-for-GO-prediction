@@ -48,32 +48,6 @@ ViT:
     hidden_size: 512
     num_hidden_layers: 4
 
-ResNetxViT:
-  small:
-    res_channel: 64
-    res_layers: 8
-    hidden_size: 64
-    vit_channels: 64
-    cnn_channels: 32
-  mid:
-    res_channel: 128
-    res_layers: 10
-    hidden_size: 128
-    vit_channels: 128
-    cnn_channels: 64
-  large:
-    res_channel: 256
-    res_layers: 5
-    hidden_size: 512
-    vit_channels: 512
-    cnn_channels: 128
-  other:
-    res_channel: 256
-    res_layers: 5
-    hidden_size: 512
-    vit_channels: 512
-    cnn_channels: 128
-
 ST:
   small:
     num_layers: 2
