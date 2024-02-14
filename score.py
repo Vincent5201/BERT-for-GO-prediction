@@ -8,7 +8,7 @@ from myDatasets import transfer_back, channel_01, channel_2, transfer
 
 def score_legal_self(data_type, num_moves, model):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
-                   "pc", "pp", "pq", "qp","cc", "cq", "qc","qq"]
+                   "pc", "pp", "pq", "qp"]
     moves_score = 0
     score = 0
     full_score = len(first_steps)
@@ -42,7 +42,7 @@ def score_legal_self(data_type, num_moves, model):
 
 def score_legal_more(data_types, num_moves, models):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
-                   "pc", "pp", "pq", "qp","cc", "cq", "qc","qq"]
+                   "pc", "pp", "pq", "qp"]
     scores = [0]*len(models)
     moves_scores = [0]*len(models)
     errors = [0]*len(models)
