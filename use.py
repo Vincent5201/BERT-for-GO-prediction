@@ -37,18 +37,21 @@ def next_moves(data_type, num_moves, model, games, num):
         model.eval()
         with torch.no_grad():
             pred = model(x)[0]
+           
 
     top_indices = np.argsort(pred.cpu().numpy())[-num:]
-    return top_indices
+    return top_indices, torch.tensor([pred[i] for i in top_indices])
 
 if __name__ == "__main__":
-    data_type = 'Word'
+    data_type = 'Picture'
     num_moves = 80
-    model = get_model("BERT", 0).to("cuda:1")
-    state = torch.load('/home/F74106165/go_data/BERT/models/BERT0.pt')
+    model = get_model("ResNet", "mid").to("cuda:1")
+    state = torch.load('models/ResNet1.pt')
     model.load_state_dict(state)
-    games = [['dp','dd','pp','pd','qf','cq','cp','dq','ep','fr']]
+    games = [["dd",'dp','pc','qp','oq','po','pe','lq','cq','dq','cp','do','bn','np','cm','cc','cd',
+              'dc','fc','ec','ed','fb','qq','rq','rr','qr','pq','sr','gc','gb','hc','qg','qi',
+              'qd','qe','iq','hb','pi','pj']]
     
-    ans = next_moves(data_type, num_moves, model, games, 5)
+    ans,_ = next_moves(data_type, num_moves, model, games, 5)
     ans = [(int(step/19),int(step%19)) for step in ans]
     print(ans)
