@@ -149,6 +149,12 @@ def channel_01(datas, k, x, y, turn):
         if ans:
             # if die, delete it
             datas[k][p][x][y] = 0
+            datas[k][15][x][y] = 0
+            datas[k][14][x][y] = 0
+            datas[k][13][x][y] = 0
+            datas[k][12][x][y] = 0
+            datas[k][11][x][y] = 0
+            datas[k][10][x][y] = 0
         return ans
     
     if turn % 2:
@@ -198,87 +204,98 @@ def channel_49(datas, k, turn, labels):
     return
 
 def channel_1015(datas, k, x, y, turn):
-    def set_liberty(k, x, y, lives):
-        for live in range(10, 16):
-            if live == lives:
-                datas[k][live][x][y] = 1
-            else:
-                datas[k][live][x][y] = 0
-    #check liberty
-    def checklive(x, y, p):
-        lives = 0
+    
+    def check_liberty(datas, k, x, y, p):
         pp = 1
+        liberty = 0
         if p:
             pp = 0
+        datas[k][p][x][y] = 2
         if x > 0:
-            if datas[k][p][x-1][y] == 0 and datas[k][pp][x-1][y] == 0:
-                lives += 1
-                datas[k][p][x-1][y] = 2
-            if datas[k][p][x-1][y] == 1:
-                #neighbor is same, check neighbor
-                datas[k][p][x][y] = 2
-                lives += checklive(x-1, y, p)
-                datas[k][p][x][y] = 1
-            if datas[k][p][x-1][y] == 2:
-                datas[k][p][x-1][y] = 0
+            if datas[k][pp][x-1][y] == 0 and datas[k][p][x-1][y] == 0:
+                liberty += 1
+                datas[k][p][x-1][y] = 3
+            elif datas[k][p][x-1][y] == 1:
+                liberty += check_liberty(datas, k, x-1, y, p)
         if y > 0:
-            if datas[k][p][x][y-1] == 0 and datas[k][pp][x][y-1] == 0:
-                lives += 1
-                datas[k][p][x][y-1] = 2
-            if datas[k][p][x][y-1] == 1:
-                datas[k][p][x][y] = 2
-                lives += checklive(x, y-1, p)
-                datas[k][p][x][y] = 1
-            if datas[k][p][x][y-1] == 2:
-                datas[k][p][x][y-1] = 0
+            if datas[k][pp][x][y-1] == 0 and datas[k][p][x][y-1] == 0:
+                liberty += 1
+                datas[k][p][x][y-1] = 3
+            elif datas[k][p][x][y-1] == 1:
+                liberty += check_liberty(datas, k, x, y-1, p)
         if x < 18:
-            if datas[k][p][x+1][y] == 0 and datas[k][pp][x+1][y] == 0:
-                lives += 1
-                datas[k][p][x+1][y] = 2
-            if datas[k][p][x+1][y] == 1:
-                datas[k][p][x][y] = 2
-                lives += checklive(x+1, y, p)
-                datas[k][p][x][y] = 1
-            if datas[k][p][x+1][y] == 2:
-                datas[k][p][x+1][y] = 0
+            if datas[k][pp][x+1][y] == 0 and datas[k][p][x+1][y] == 0:
+                liberty += 1
+                datas[k][p][x+1][y] = 3
+            elif datas[k][p][x+1][y] == 1:
+                liberty += check_liberty(datas, k, x+1, y, p)
         if y < 18:
-            if datas[k][p][x][y+1] == 0 and datas[k][pp][x][y+1] == 0:
-                lives += 1
-                datas[k][p][x][y+1] = 2
-            if datas[k][p][x][y+1] == 1:
-                datas[k][p][x][y] = 2
-                lives += checklive(x, y+1, p)
-                datas[k][p][x][y] = 1
-            if datas[k][p][x][y+1] == 2:
-                datas[k][p][x][y+1] = 0
-        
-        if lives < 6:
-            set_liberty(k, x, y, lives+9)
-        else:
-            set_liberty(k, x, y, 15)
-        return lives
+            if datas[k][pp][x][y+1] == 0 and datas[k][p][x][y+1] == 0:
+                liberty += 1
+                datas[k][p][x][y+1] = 3
+            elif datas[k][p][x][y+1] == 1:
+                liberty += check_liberty(datas, k, x, y+1, p)
+        datas[k][p][x][y] = 1
+        if x > 0 and datas[k][p][x-1][y] == 3:
+            datas[k][p][x-1][y] = 0
+        if y > 0 and datas[k][p][x][y-1] == 3:
+            datas[k][p][x][y-1] = 0
+        if x < 18 and datas[k][p][x+1][y] == 3:
+           datas[k][p][x+1][y] = 0
+        if y < 18 and datas[k][p][x][y+1] == 3:
+            datas[k][p][x][y+1] = 0
+        return liberty
     
-    if turn % 2:
-        checklive(x, y, 1)
-        if x > 0 and datas[k][0][x-1][y]:
-            checklive(x-1, y, 0)
-        if y > 0 and datas[k][0][x][y-1]:
-            checklive(x, y-1, 0)
-        if x < 18 and datas[k][0][x+1][y]:
-            checklive(x+1, y, 0)
-        if y < 18 and datas[k][0][x][y+1]:
-            checklive(x, y+1, 0)
-    else:
-        checklive(x, y, 0)
-        if x > 0 and datas[k][1][x-1][y]:
-            checklive(x-1, y, 1)
-        if y > 0 and datas[k][1][x][y-1]:
-            checklive(x, y-1, 1)
-        if x < 18 and datas[k][1][x+1][y]:
-            checklive(x+1, y, 1)
-        if y < 18 and datas[k][1][x][y+1]:
-            checklive(x, y+1, 1)
-    return
+    def set_liberty_plane(datas, k, x, y, liberty):
+        if liberty < 6:
+            for i in range(10,16):
+                if i == liberty+9:
+                    datas[k][i][x][y] = 1
+                else:
+                    datas[k][i][x][y] = 0
+        else:
+            datas[k][15][x][y] = 1
+            datas[k][14][x][y] = 0
+            datas[k][13][x][y] = 0
+            datas[k][12][x][y] = 0
+            datas[k][11][x][y] = 0
+            datas[k][10][x][y] = 0
+        return 
+    
+    
+    def set_liberty(datas, k, x, y, p, liberty):
+        datas[k][p][x][y] = 2
+        set_liberty_plane(datas, k, x, y, liberty)
+        if x > 0 and datas[k][p][x-1][y] == 1:
+            set_liberty(datas, k, x-1, y, p, liberty)
+        if y > 0 and datas[k][p][x][y-1] == 1:
+            set_liberty(datas, k, x, y-1, p, liberty)
+        if x < 18 and datas[k][p][x+1][y] == 1:
+            set_liberty(datas, k, x+1, y, p, liberty)
+        if y < 18 and datas[k][p][x][y+1] == 1:
+            set_liberty(datas, k, x, y+1, p, liberty)
+        datas[k][p][x][y] = 1
+        return
+    
+    ret = check_liberty(datas, k, x, y, turn%2)
+    set_liberty(datas, k, x, y, turn%2, ret)
+    pp = 1
+    if turn%2:
+        pp = 0
+    if x > 0 and datas[k][pp][x-1][y]:
+        ret1 = check_liberty(datas, k, x-1, y, pp)
+        set_liberty(datas, k, x-1, y, pp, ret1)
+    if y > 0 and datas[k][pp][x][y-1]:
+        ret2 = check_liberty(datas, k, x, y-1, pp)
+        set_liberty(datas, k, x, y-1, pp, ret2)
+    if x < 18 and datas[k][pp][x+1][y]:
+        ret3 = check_liberty(datas, k, x+1, y, pp)
+        set_liberty(datas, k, x+1, y, pp, ret3)
+    if y < 18 and datas[k][pp][x][y+1]:
+        ret4 = check_liberty(datas, k, x, y+1, pp)
+        set_liberty(datas, k, x, y+1, pp, ret4)
+
+    return ret
 
 def channel_2(datas, k):
     # empty is 1
@@ -374,6 +391,7 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
         games = np.delete(games, 0, axis=1)
     games = [[transfer(step) for step in game[:num_moves]] for game in games]
     print("transfer finish")
+   
     if be_top_left:
         games = top_left(games)
     split = int(after_check * split_rate)
@@ -393,14 +411,16 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
 
 
 if __name__ == "__main__":
-    path = 'D:\codes\python\.vscode\Transformer_Go\datas\data_Foxwq_9d.csv'
-    data_source = "foxwq"
+    path = 'D:\codes\python\.vscode\Transformer_Go\datas\data_240119.csv'
+
+    data_source = "pros"
     data_type = 'Picture'
     num_moves = 80
-    data_size = 10
+    data_size = 100
     split_rate = 0.1
     be_top_left = False
     trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-    print(trainData.x[2][0])
-    print(trainData.x[2][1])
+    print(trainData.x[70][0])
+    print(trainData.x[70][1])
+    print(trainData.x[70][10])
 
