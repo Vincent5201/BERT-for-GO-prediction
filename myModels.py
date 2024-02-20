@@ -1,4 +1,4 @@
-from transformers import BertModel, BertConfig, GPT2Config, GPT2Model
+from transformers import BertModel, BertConfig, BertForPreTraining, GPT2Config, GPT2Model
 import torch.nn as nn
 import torch
 import yaml
@@ -155,6 +155,15 @@ def get_model(name, level):
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
         model = Bert_Go(config, 361)
+    elif name == 'BERT_pre':
+        config = BertConfig() 
+        config.hidden_size = args["hidden_size"]
+        config.num_hidden_layers = args["num_hidden_layers"]
+        config.vocab_size = 364
+        config.num_attention_heads = 1
+        config.intermediate_size = config.hidden_size*4
+        config.position_embedding_type = "relative_key"
+        model = BertForPreTraining(config)
     elif name == 'GPT':
         config = GPT2Config()
         config.n_embd = args["hidden_size"]

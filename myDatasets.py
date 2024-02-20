@@ -149,12 +149,6 @@ def channel_01(datas, k, x, y, turn):
         if ans:
             # if die, delete it
             datas[k][p][x][y] = 0
-            datas[k][15][x][y] = 0
-            datas[k][14][x][y] = 0
-            datas[k][13][x][y] = 0
-            datas[k][12][x][y] = 0
-            datas[k][11][x][y] = 0
-            datas[k][10][x][y] = 0
         return ans
     
     if turn % 2:
@@ -247,6 +241,13 @@ def channel_1015(datas, k, x, y, turn):
         return liberty
     
     def set_liberty_plane(datas, k, x, y, liberty):
+        if liberty == 0:
+            datas[k][15][x][y] = 0
+            datas[k][14][x][y] = 0
+            datas[k][13][x][y] = 0
+            datas[k][12][x][y] = 0
+            datas[k][11][x][y] = 0
+            datas[k][10][x][y] = 0
         if liberty < 6:
             for i in range(10,16):
                 if i == liberty+9:
@@ -377,7 +378,59 @@ class WordsDataset(Dataset):
 
     def __len__(self):
         return self.n_samples
-    
+
+class BERTPretrainDataset(Dataset):
+    # data loading
+    def __init__(self, games, num_moves):
+        #next_sentence data
+        half = int(num_moves/2)
+        games = np.array(games)
+        rand = torch.rand([games.shape[0]])
+        mask = rand < 0.5
+        games_1 = games[mask]
+        games_0 = games[~mask]
+        
+        games_a = games_1[:, :half]
+        games_b = games_1[:, half:]
+        np.random.shuffle(games_b)
+        games_a = np.insert(games_a, half, 362, axis=1)
+        games_b = np.insert(games_b, half, 362, axis=1)
+        games_1 = np.concatenate((games_a, games_b), axis=1)
+
+        games_0 = np.insert(games_0, half, 362, axis=1)
+        games_0 = np.insert(games_0, games_0.shape[1], 362, axis=1)
+
+        label_1 = torch.ones([games_1.shape[0]])
+        label_0 = torch.zeros([games_0.shape[0]])
+        games = np.concatenate((games_1, games_0), axis=0)
+        games = np.insert(games, 0, 363, axis=1)
+        next_sentence_labels = np.concatenate((label_1, label_0), axis=0)
+
+        # 15% mask data
+        labels = copy.deepcopy(games)
+        rand = torch.rand(games.shape)
+        mask = (rand < 0.15) * (games != 0) * (games != 362) * (games != 363)
+        for i in range(games.shape[0]):
+            selection = torch.flatten(mask[i].nonzero()).tolist()
+            games[i, selection] = 364
+
+        token0 = torch.zeros([games.shape[0], half+2])
+        token1 = torch.ones([games.shape[0], half+1])
+        token_type = np.concatenate((token0, token1), axis=1)
+
+        self.x = torch.tensor(games)
+        self.y = torch.tensor(labels)
+        self.mask = torch.ones(games.shape)
+        self.token_type = torch.tensor(token_type)
+        self.next_sentence_labels = torch.tensor(next_sentence_labels)
+        self.n_samples = self.x.shape[0]
+
+    def __getitem__(self, index):  
+        return self.x[index], self.mask[index], self.token_type[index], self.next_sentence_labels[index], self.y[index]
+
+    def __len__(self):
+        return self.n_samples
+
 def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left):
     df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip').head(data_size)
     df = df.sample(frac=1,replace=False).reset_index(drop=True).to_numpy()
@@ -395,18 +448,21 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
     if be_top_left:
         games = top_left(games)
     split = int(after_check * split_rate)
-    games_train = games[split:]        
-    games_eval = games[:split]
     if data_type == 'Word':
-        train_dataset = WordsDataset(games_train,  num_moves)
-        eval_dataset = WordsDataset(games_eval,  num_moves)
+        train_dataset = WordsDataset(games[split:],  num_moves)
+        eval_dataset = WordsDataset(games[:split],  num_moves)
     elif data_type == 'Picture':
-        train_dataset = PicturesDataset(games_train, num_moves)
-        eval_dataset = PicturesDataset(games_eval, num_moves)
+        train_dataset = PicturesDataset(games[split:], num_moves)
+        eval_dataset = PicturesDataset(games[:split], num_moves)
+    elif data_type == "Pretrain":
+        train_dataset = BERTPretrainDataset(games, num_moves)
+        eval_dataset = None
+
     print(f'trainData shape:{train_dataset.x.shape}')
     print(f'trainData memory size:{get_tensor_memory_size(train_dataset.x)}')
-    print(f'evalData shape:{eval_dataset.x.shape}')
-    print(f'evalData memory size:{get_tensor_memory_size(eval_dataset.x)}')
+    if not eval_dataset is None:
+        print(f'evalData shape:{eval_dataset.x.shape}')
+        print(f'evalData memory size:{get_tensor_memory_size(eval_dataset.x)}')
     return train_dataset, eval_dataset
 
 
@@ -414,13 +470,17 @@ if __name__ == "__main__":
     path = 'D:\codes\python\.vscode\Transformer_Go\datas\data_240119.csv'
 
     data_source = "pros"
-    data_type = 'Picture'
+    data_type = 'Pretrain'
     num_moves = 80
-    data_size = 100
+    data_size = 20
     split_rate = 0.1
     be_top_left = False
     trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-    print(trainData.x[70][0])
-    print(trainData.x[70][1])
-    print(trainData.x[70][10])
+    print(trainData.x[2])
+    print(trainData.y[2])
+    print(trainData.mask[2])
+    print(trainData.token_type[2])
+    print(trainData.next_sentence_labels[2])
+    print(trainData.n_samples)
+
 
