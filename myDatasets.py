@@ -418,11 +418,11 @@ class BERTPretrainDataset(Dataset):
         token1 = torch.ones([games.shape[0], half+1])
         token_type = np.concatenate((token0, token1), axis=1)
 
-        self.x = torch.tensor(games)
-        self.y = torch.tensor(labels)
-        self.mask = torch.ones(games.shape)
-        self.token_type = torch.tensor(token_type)
-        self.next_sentence_labels = torch.tensor(next_sentence_labels)
+        self.x = torch.tensor(games).long()
+        self.y = torch.tensor(labels).long()
+        self.mask = torch.ones(games.shape).long()
+        self.token_type = torch.tensor(token_type).long()
+        self.next_sentence_labels = torch.tensor(next_sentence_labels).long()
         self.n_samples = self.x.shape[0]
 
     def __getitem__(self, index):  

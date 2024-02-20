@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 
 from myDatasets import get_datasets
@@ -18,7 +17,7 @@ data_source = "foxwq"
 num_moves = 80 
 split_rate = 0.1
 be_top_left = False
-model_name = "BERT_pre"
+model_name = "BERTxpretrain"
 model_size = "mid"
 device = "cuda:1"
 
@@ -26,12 +25,8 @@ trainData, testData = get_datasets(path, data_type, data_source, data_size, num_
 model = get_model(model_name, model_size)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-loss_fct = nn.CrossEntropyLoss()
-#loss_fct = CustomCrossEntropyLoss()
-
 
 train_loader = DataLoader(trainData, batch_size=batch_size, shuffle=True)
-test_loader = DataLoader(testData, batch_size=batch_size, shuffle=True)
 
 for epoch in range(num_epochs):
     model.train()
