@@ -149,6 +149,12 @@ def channel_01(datas, k, x, y, turn):
         if ans:
             # if die, delete it
             datas[k][p][x][y] = 0
+            datas[k][15][x][y] = 0
+            datas[k][14][x][y] = 0
+            datas[k][13][x][y] = 0
+            datas[k][12][x][y] = 0
+            datas[k][11][x][y] = 0
+            datas[k][10][x][y] = 0
         return ans
     
     if turn % 2:
@@ -241,13 +247,6 @@ def channel_1015(datas, k, x, y, turn):
         return liberty
     
     def set_liberty_plane(datas, k, x, y, liberty):
-        if liberty == 0:
-            datas[k][15][x][y] = 0
-            datas[k][14][x][y] = 0
-            datas[k][13][x][y] = 0
-            datas[k][12][x][y] = 0
-            datas[k][11][x][y] = 0
-            datas[k][10][x][y] = 0
         if liberty < 6:
             for i in range(10,16):
                 if i == liberty+9:
