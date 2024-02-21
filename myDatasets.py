@@ -204,7 +204,7 @@ def channel_49(datas, k, turn, labels):
     return
 
 def channel_1015(datas, k, x, y, turn):
-    
+
     def check_liberty(datas, k, x, y, p):
         pp = 1
         liberty = 0
@@ -276,9 +276,11 @@ def channel_1015(datas, k, x, y, turn):
             set_liberty(datas, k, x, y+1, p, liberty)
         datas[k][p][x][y] = 1
         return
-    
-    ret = check_liberty(datas, k, x, y, turn%2)
-    set_liberty(datas, k, x, y, turn%2, ret)
+    if datas[k][2][x][y]:
+        ret = 0
+    else:
+        ret = check_liberty(datas, k, x, y, turn%2)
+        set_liberty(datas, k, x, y, turn%2, ret)
     pp = 1
     if turn%2:
         pp = 0
