@@ -15,7 +15,7 @@ def score_legal_self(data_type, num_moves, model):
     records = []
     for step in tqdm(first_steps, total = len(first_steps), leave = False):
         games = [[step]]
-        datas = np.zeros([1,3,19,19],  dtype=np.float32)
+        datas = np.zeros([1,16,19,19],  dtype=np.float32)
         f_step = transfer(step)
         x = int(f_step / 19)
         y = int(f_step % 19)
@@ -31,7 +31,6 @@ def score_legal_self(data_type, num_moves, model):
                 channel_01(datas, 0, x, y, len(games[0]))
                 channel_2(datas, 0)
             else:
-                games[0].append(next_move_ch)
                 moves_score += len(games[0])
                 break
         if len(games[0]) == num_moves:
@@ -135,7 +134,7 @@ def score_feature_self(data_type, num_moves, model, bounds):
 
 
 if __name__ == "__main__":
-
+    """
     data_type = 'Picture'
     num_moves = 80
     model = get_model("ST", "mid").to("cuda:1")
@@ -150,14 +149,14 @@ if __name__ == "__main__":
     # score self
     data_type = 'Picture'
     num_moves = 80
-    model = get_model("ST", "mid").to("cuda:1")
-    state = torch.load('/home/F74106165/Transformer_Go/models/ST1.pt')
+    model = get_model("ResNet", "mid").to("cuda:1")
+    state = torch.load('/home/F74106165/Transformer_Go/models_80/ResNet1_1600.pt')
     model.load_state_dict(state)
     score, moves_score, full_score, records = score_legal_self(data_type, num_moves, model)
     print(f'score:{score}/{full_score}')
     print(f'moves_score:{moves_score/full_score}/{num_moves}')
-    print(records[1])
-    """
+    #print(records[1])
+    
     """
     #score more
     data_types = ['Word', 'Picture', 'Picture', 'Picture']
