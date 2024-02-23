@@ -384,45 +384,74 @@ class BERTPretrainDataset(Dataset):
     # data loading
     def __init__(self, games, num_moves):
         #next_sentence data
-        half = int(num_moves/2)
-        games = np.array(games)
-        rand = torch.rand([games.shape[0]])
-        mask = rand < 0.5
-        games_1 = games[mask]
-        games_0 = games[~mask]
         
-        games_a = games_1[:, :half]
-        games_b = games_1[:, half:]
-        np.random.shuffle(games_b)
-        games_a = np.insert(games_a, half, 362, axis=1)
-        games_b = np.insert(games_b, half, 362, axis=1)
-        games_1 = np.concatenate((games_a, games_b), axis=1)
+        def deal_data(games, length, num_moves):
+            half = int(length/2)
+            games = np.array(games)
+            rand = torch.rand([games.shape[0]])
+            mask = rand < 0.5
+            games_1 = games[mask]
+            games_0 = games[~mask]
+            games_a = games_1[:, :half]
+            games_b = games_1[:, half:]
+            np.random.shuffle(games_b)
+            games_a = np.insert(games_a, half, 362, axis=1)
+            games_b = np.insert(games_b, length-half, 362, axis=1)
+            games_1 = np.concatenate((games_a, games_b), axis=1)
 
-        games_0 = np.insert(games_0, half, 362, axis=1)
-        games_0 = np.insert(games_0, games_0.shape[1], 362, axis=1)
+            games_0 = np.insert(games_0, half, 362, axis=1)
+            games_0 = np.insert(games_0, length+1, 362, axis=1)
 
-        label_1 = torch.ones([games_1.shape[0]])
-        label_0 = torch.zeros([games_0.shape[0]])
-        games = np.concatenate((games_1, games_0), axis=0)
-        games = np.insert(games, 0, 363, axis=1)
-        next_sentence_labels = np.concatenate((label_1, label_0), axis=0)
+            label_1 = torch.ones([games_1.shape[0]])
+            label_0 = torch.zeros([games_0.shape[0]])
+            games = np.concatenate((games_1, games_0), axis=0)
+            games = np.insert(games, 0, 363, axis=1)
+            next_sentence_labels = np.concatenate((label_1, label_0), axis=0)
 
-        # 15% mask data
-        labels = copy.deepcopy(games)
-        rand = torch.rand(games.shape)
-        mask = (rand < 0.15) * (games != 0) * (games != 362) * (games != 363)
-        for i in range(games.shape[0]):
-            selection = torch.flatten(mask[i].nonzero()).tolist()
-            games[i, selection] = 364
+            # 15% mask data
+            labels = copy.deepcopy(games)
+            rand = torch.rand(games.shape)
+            mask = (rand < 0.15) * (games != 0) * (games != 362) * (games != 363)
+            for i in range(games.shape[0]):
+                selection = torch.flatten(mask[i].nonzero()).tolist()
+                games[i, selection] = 364
 
-        token0 = torch.zeros([games.shape[0], half+2])
-        token1 = torch.ones([games.shape[0], half+1])
-        token_type = np.concatenate((token0, token1), axis=1)
+            token0 = torch.zeros([games.shape[0], half+2])
+            token1 = torch.ones([games.shape[0], num_moves+1-half])
+            token_type = np.concatenate((token0, token1), axis=1)
+            return games, labels, token_type, next_sentence_labels
 
-        self.x = torch.tensor(games).long()
+    
+        games_record = [[0 for j in range(num_moves)] for i in range(len(games))]
+        
+        gamesall = []
+        labels = []
+        token_types = []
+        next_sentence_labels = []
+     
+        for i in range(len(games)):
+            games_record[i][0] = games[i][0]
+        for i in range(1, num_moves):
+            for j in range(len(games_record)):
+                games_record[j][i] = games[j][i]
+            games_tmp = copy.deepcopy(games_record)
+            
+            games_tmp, label_tmp, token_type_tmp, next_sentence_labels_tmp = deal_data(games_tmp, i+1, num_moves)
+            
+            gamesall.append(games_tmp)
+            labels.append(label_tmp)
+            token_types.append(token_type_tmp)
+            next_sentence_labels.append(next_sentence_labels_tmp)
+      
+        gamesall = np.array(gamesall).reshape((num_moves-1)*len(games), num_moves+3)
+        labels = np.array(labels).reshape((num_moves-1)*len(games), num_moves+3)
+        token_types = np.array(token_types).reshape((num_moves-1)*len(games), num_moves+3)
+        next_sentence_labels = np.array(next_sentence_labels).reshape((num_moves-1)*len(games))
+
+        self.x = torch.tensor(gamesall).long()
         self.y = torch.tensor(labels).long()
-        self.mask = torch.ones(games.shape).long()
-        self.token_type = torch.tensor(token_type).long()
+        self.mask = (self.x != 0).detach().long()
+        self.token_type = torch.tensor(token_types).long()
         self.next_sentence_labels = torch.tensor(next_sentence_labels).long()
         self.n_samples = self.x.shape[0]
 
@@ -477,11 +506,11 @@ if __name__ == "__main__":
     split_rate = 0.1
     be_top_left = False
     trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-    print(trainData.x[2])
-    print(trainData.y[2])
-    print(trainData.mask[2])
-    print(trainData.token_type[2])
-    print(trainData.next_sentence_labels[2])
+    print(trainData.x[5])
+    print(trainData.y[5])
+    print(trainData.mask[5])
+    print(trainData.token_type[5])
+    print(trainData.next_sentence_labels)
     print(trainData.n_samples)
 
 
