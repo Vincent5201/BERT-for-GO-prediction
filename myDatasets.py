@@ -431,7 +431,7 @@ class BERTPretrainDataset(Dataset):
      
         for i in range(len(games)):
             games_record[i][0] = games[i][0]
-        for i in range(1, num_moves):
+        for i in tqdm(range(1, num_moves), total=num_moves-1):
             for j in range(len(games_record)):
                 games_record[j][i] = games[j][i]
             games_tmp = copy.deepcopy(games_record)
@@ -454,6 +454,7 @@ class BERTPretrainDataset(Dataset):
         self.token_type = torch.tensor(token_types).long()
         self.next_sentence_labels = torch.tensor(next_sentence_labels).long()
         self.n_samples = self.x.shape[0]
+
 
     def __getitem__(self, index):  
         return self.x[index], self.mask[index], self.token_type[index], self.next_sentence_labels[index], self.y[index]
@@ -506,11 +507,11 @@ if __name__ == "__main__":
     split_rate = 0.1
     be_top_left = False
     trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-    print(trainData.x[5])
-    print(trainData.y[5])
-    print(trainData.mask[5])
-    print(trainData.token_type[5])
-    print(trainData.next_sentence_labels)
+    print(trainData.x[2])
+    print(trainData.y[2])
+    print(trainData.mask[2])
+    print(trainData.token_type[2])
+    print(trainData.next_sentence_labels[2])
     print(trainData.n_samples)
 
 

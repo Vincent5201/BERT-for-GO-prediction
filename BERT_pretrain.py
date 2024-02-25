@@ -7,7 +7,7 @@ from myDatasets import get_datasets
 from myModels import get_model
 
 batch_size = 64
-num_epochs = 50
+num_epochs = 30
 max_len = 80
 lr = 5e-5
 data_size = 140000
@@ -19,7 +19,7 @@ split_rate = 0.1
 be_top_left = False
 model_name = "BERTxpretrain"
 model_size = "mid"
-device = "cuda:1"
+device = "cuda:0"
 
 trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
 model = get_model(model_name, model_size)
@@ -45,4 +45,6 @@ for epoch in range(num_epochs):
         optimizer.step()
         losses.append(loss.item())
     print(f'epoch {epoch+1}/{num_epochs},  train_loss = {sum(losses)/len(losses):.4f}')
-    torch.save(model.state_dict(), f'/home/F74106165/Transformer_Go/tmpmodels/model{epoch+1}.pt')
+
+    save_directory = '/home/F74106165/Transformer_Go/models_80/p1'
+    model.save_pretrained(save_directory)

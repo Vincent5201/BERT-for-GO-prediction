@@ -6,6 +6,9 @@ from tqdm import tqdm
 
 from myDatasets import get_datasets
 from myModels import get_model
+from safetensors import safe_open
+from transformers import BertConfig, BertForPreTraining, BertModel, BertForSequenceClassification
+
 
 def myaccn(pred, true, n):
     total = len(true)
@@ -45,20 +48,24 @@ class CustomCrossEntropyLoss(nn.Module):
 batch_size = 64
 num_epochs = 50
 max_len = 80
-lr = 2e-4
-data_size = 15000
+lr = 5e-4
+data_size = 11000
 path = 'datas/data_240119.csv'
-data_type = "Picture" 
+data_type = "Word" 
 data_source = "pros" 
 num_moves = 80 
 split_rate = 0.1
-be_top_left = True
-model_name = "ViT"
+be_top_left = False
+model_name = "BERT"
 model_size = "mid"
 device = "cuda:1"
+save = True
+
+config_path = 'models_80/p1/config.json'
+state_path = 'models_80/p1/model.safetensors'
+model = get_model(model_name, model_size, state_path, config_path)
 
 trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-model = get_model(model_name, model_size)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 loss_fct = nn.CrossEntropyLoss()
@@ -106,7 +113,7 @@ for epoch in range(num_epochs):
                 x, y = datas
                 x = x.to(device)
                 y = y.to(device)
-            pred = model(x)
+                pred = model(x)
             predl += pred
             ans = torch.max(pred,1).indices
             preds += ans
@@ -121,4 +128,5 @@ for epoch in range(num_epochs):
     print(f'accuracy10:{myaccn(predl,true,10)}')
     print(f'accuracy5:{myaccn(predl,true, 5)}')
     print(f'accuracy:{accuracy_score(preds,true)}')
-    torch.save(model.state_dict(), f'/home/F74106165/Transformer_Go/tmpmodels/model{epoch+1}.pt')
+    if save:
+        torch.save(model.state_dict(), f'/home/F74106165/Transformer_Go/tmpmodels/model{epoch+1}.pt')

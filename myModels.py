@@ -1,15 +1,19 @@
-from transformers import BertModel, BertConfig, BertForPreTraining, GPT2Config, GPT2Model
+from transformers import BertModel, BertConfig, BertForPreTraining, BertForSequenceClassification
 import torch.nn as nn
 import torch
 import yaml
 import torch.nn.functional as F
 from transformers import ViTModel, ViTConfig, Swinv2Config, Swinv2Model
+from safetensors import safe_open
 
 
 class Bert_Go(nn.Module):
-    def __init__(self, config, num_labels):
+    def __init__(self, config, num_labels, p_model = None):
         super(Bert_Go, self).__init__()
-        self.bert = BertModel(config)
+        if p_model is None:
+            self.bert = BertModel(config)
+        else:
+            self.bert = p_model
         self.linear1 = nn.Linear(config.hidden_size, 512)
         self.linear2 = nn.Linear(512, num_labels)
     def forward(self, x, m):
@@ -19,18 +23,6 @@ class Bert_Go(nn.Module):
         logits = self.linear2(logits)
         return logits
     
-class GPT_Go(nn.Module):
-    def __init__(self, config, num_labels):
-        super(GPT_Go, self).__init__()
-        self.gpt = GPT2Model(config)
-        self.linear1 = nn.Linear(config.hidden_size, 512)
-        self.linear2 = nn.Linear(512, num_labels)
-    def forward(self, x, m):
-        output = self.gpt(input_ids=x, past_key_values=None, attention_mask=m)["last_hidden_state"]
-        logits = torch.mean(output, dim=1)
-        logits = self.linear1(logits)
-        logits = self.linear2(logits)
-        return logits
     
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernal_size):
@@ -140,21 +132,40 @@ class myST(nn.Module):
         return y
 
 
-def get_model(name, level):
+def get_model(name, level, state_path = None, config_path = None):
     with open('modelArgs.yaml', 'r') as file:
         args = yaml.safe_load(file)
     if not ("x" in name):
         args = args[name][level]
 
     if name == 'BERT':
-        config = BertConfig() 
-        config.hidden_size = args["hidden_size"]
-        config.num_hidden_layers = args["num_hidden_layers"]
-        config.vocab_size = 364
-        config.num_attention_heads = 1
-        config.intermediate_size = config.hidden_size*4
-        config.position_embedding_type = "relative_key"
-        model = Bert_Go(config, 361)
+        if state_path is None or config_path is None:
+            config = BertConfig() 
+            config.hidden_size = args["hidden_size"]
+            config.num_hidden_layers = args["num_hidden_layers"]
+            config.vocab_size = 365
+            config.num_attention_heads = 1
+            config.intermediate_size = config.hidden_size*4
+            config.position_embedding_type = "relative_key"
+            model = Bert_Go(config, 361)
+        else:
+            tensors = {}
+            with safe_open(state_path, framework="pt") as f:
+                for k in f.keys():
+                    split_k = k.split('.')
+                    if split_k[0] == 'bert':
+                        kk = k[5:]
+                    else:
+                        kk = k
+                    tensors[kk] = f.get_tensor(k)
+            keys_to_delete = ["cls.predictions.bias", "cls.predictions.transform.LayerNorm.bias", "cls.predictions.transform.LayerNorm.weight",
+                               "cls.predictions.transform.dense.bias", "cls.predictions.transform.dense.weight", "cls.seq_relationship.bias", "cls.seq_relationship.weight"]
+            for key in keys_to_delete:
+                del tensors[key]
+            config = BertConfig.from_json_file(config_path)
+            pretrained_model = BertModel(config)
+            pretrained_model.load_state_dict(tensors)
+            model = Bert_Go(config, 361, pretrained_model)
     elif name == 'BERTxpretrain':
         args = args['BERT'][level]
         config = BertConfig() 
@@ -165,17 +176,7 @@ def get_model(name, level):
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
         model = BertForPreTraining(config)
-    elif name == 'GPT':
-        config = GPT2Config()
-        config.n_embd = args["hidden_size"]
-        config.n_layer= args["layers"]
-        
-        config.n_head = 8
-        config.vocab_size = 364
-        config.n_positions = 512
-        config.bos_token_id = 363
-        config.eos_token_id = 362
-        model = GPT_Go(config, 361)
+
     elif name == 'ResNet':
         res_channel = args["res_channel"]
         layers = args["layers"]
