@@ -308,7 +308,7 @@ def channel_2(datas, k):
 def find_joseki(games):
     joseki_dict = {}
     games = games[:, :, :10, :10]
-    for game in games:
+    for game in tqdm(games, total=len(games)):
         nonzero_count0 = np.count_nonzero(game[0])
         nonzero_count1 = np.count_nonzero(game[1])
         if nonzero_count0 + nonzero_count1 > 2:
@@ -348,7 +348,7 @@ class PicturesDataset(Dataset):
                     channel_49(datas, game_start, j, labels)
                     channel_1015(datas, game_start, x, y, j)
                 game_start += 1
-        #find_joseki(datas[:,:2,:,:])
+        find_joseki(datas[:,:2,:,:])
         self.x = torch.tensor(datas)
         self.y = torch.tensor(labels).long()
         self.n_samples = total_moves
@@ -479,7 +479,7 @@ class BERTPretrainDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left):
+def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True):
     df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip').head(data_size)
     df = df.sample(frac=1,replace=False).reset_index(drop=True).to_numpy()
     before_chcek = len(df)
@@ -496,18 +496,22 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
     if be_top_left:
         games = top_left(games)
     split = int(after_check * split_rate)
+    train_dataset = None
+    eval_dataset = None
     if data_type == 'Word':
-        train_dataset = WordsDataset(games[split:],  num_moves)
+        if train:
+            train_dataset = WordsDataset(games[split:],  num_moves)
         eval_dataset = WordsDataset(games[:split],  num_moves)
     elif data_type == 'Picture':
-        train_dataset = PicturesDataset(games[split:], num_moves)
+        if train:
+            train_dataset = PicturesDataset(games[split:], num_moves)
         eval_dataset = PicturesDataset(games[:split], num_moves)
     elif data_type == "Pretrain":
         train_dataset = BERTPretrainDataset(games, num_moves)
         eval_dataset = None
-
-    print(f'trainData shape:{train_dataset.x.shape}')
-    print(f'trainData memory size:{get_tensor_memory_size(train_dataset.x)}')
+    if not train_dataset is None:
+        print(f'trainData shape:{train_dataset.x.shape}')
+        print(f'trainData memory size:{get_tensor_memory_size(train_dataset.x)}')
     if not eval_dataset is None:
         print(f'evalData shape:{eval_dataset.x.shape}')
         print(f'evalData memory size:{get_tensor_memory_size(eval_dataset.x)}')
@@ -515,16 +519,16 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
 
 
 if __name__ == "__main__":
-    path = 'D:\codes\python\.vscode\Transformer_Go\datas\data_240119.csv'
+    path = 'datas/data_240119.csv'
 
     data_source = "pros"
     data_type = 'Picture'
     num_moves = 80
-    data_size = 20
+    data_size = 30000
     split_rate = 0.1
     be_top_left = False
     trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-    
+  
     print(trainData.n_samples)
 
 

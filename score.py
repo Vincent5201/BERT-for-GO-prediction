@@ -1,10 +1,21 @@
 import torch
+from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
+from sklearn.metrics import accuracy_score
 from use import next_moves
 from myModels import get_model
-from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015
+from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
 
+def myaccn(pred, true, n):
+    total = len(true)
+    correct = 0
+    for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
+        sorted_indices = (-p).argsort()
+        top_k_indices = sorted_indices[:n]  
+        if true[i] in top_k_indices:
+            correct += 1
+    return correct / total
 
 def score_legal_self(data_type, num_moves, model):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
@@ -132,8 +143,63 @@ def score_feature_self(data_type, num_moves, model, bounds):
         records.append(games[0])
     return [near/total for near in nears], atari/total, liberty/total
 
+def acc(data_type, model, device, test_loader):
+    model.eval()
+    preds = []
+    predl = []
+    true = []
+    with torch.no_grad():
+        for datas in tqdm(test_loader, leave=False):
+            if data_type == "Word":
+                x, m, y = datas
+                x = x.to(device)
+                m = m.to(device)
+                y = y.to(device)
+                pred = model(x, m)
+            elif data_type == "Picture":
+                x, y = datas
+                x = x.to(device)
+                y = y.to(device)
+                pred = model(x)
+            predl += pred
+            ans = torch.max(pred,1).indices
+            preds += ans
+            true += y
+    predl = torch.stack(predl)
+    true = torch.stack(true)
+    true = torch.tensor(true).cpu().numpy()
+    preds = torch.tensor(preds).cpu().numpy()
+    print(f'accuracy30:{myaccn(predl,true,30)}')
+    print(f'accuracy10:{myaccn(predl,true,10)}')
+    print(f'accuracy5:{myaccn(predl,true, 5)}')
+    print(f'accuracy:{accuracy_score(preds,true)}')
+
 
 if __name__ == "__main__":
+    batch_size = 64
+    num_epochs = 50
+    max_len = 80
+    lr = 5e-4
+    data_size = 11000
+    path = 'datas/data_240119.csv'
+    data_type = "Word" 
+    data_source = "pros" 
+    num_moves = 80 
+    split_rate = 0.1
+    be_top_left = False
+    model_name = "BERT"
+    model_size = "mid"
+    device = "cuda:1"
+    save = True
+    _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, False)
+    model = get_model(model_name, model_size)
+    state = torch.load('models_80/BERT1.pt')
+    model.load_state_dict(state)
+    model = model.to(device)
+    test_loader = DataLoader(testData, batch_size=batch_size, shuffle=True)
+    acc(data_type, model, device, test_loader)
+    
+
     """
     data_type = 'Picture'
     num_moves = 80
@@ -146,6 +212,7 @@ if __name__ == "__main__":
     print(f'atari:{atari}')
     print(f'liberty:{liberty}')
     """
+    """
     # score self
     data_type = 'Picture'
     num_moves = 80
@@ -156,7 +223,7 @@ if __name__ == "__main__":
     print(f'score:{score}/{full_score}')
     print(f'moves_score:{moves_score/full_score}/{num_moves}')
     #print(records[1])
-    
+    """
     """
     #score more
     data_types = ['Word', 'Picture', 'Picture', 'Picture']

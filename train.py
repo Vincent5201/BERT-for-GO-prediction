@@ -6,8 +6,7 @@ from tqdm import tqdm
 
 from myDatasets import get_datasets
 from myModels import get_model
-from safetensors import safe_open
-from transformers import BertConfig, BertForPreTraining, BertModel, BertForSequenceClassification
+
 
 
 def myaccn(pred, true, n):
