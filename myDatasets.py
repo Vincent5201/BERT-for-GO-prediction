@@ -304,6 +304,23 @@ def channel_2(datas, k):
     datas[k][2] = np.logical_not(np.logical_or(datas[k][0],datas[k][1])).astype(int)
     return
 
+
+def find_joseki(games):
+    joseki_dict = {}
+    games = games[:, :, :10, :10]
+    for game in games:
+        nonzero_count0 = np.count_nonzero(game[0])
+        nonzero_count1 = np.count_nonzero(game[1])
+        if nonzero_count0 + nonzero_count1 > 2:
+            key = tuple(game.reshape(200))
+            try:
+                joseki_dict[key] += 1
+            except:
+                joseki_dict[key] = 1
+            sorted_d = dict(sorted(joseki_dict.items(), key=lambda item: item[1], reverse=True))
+            joseki_dict = dict(list(sorted_d.items())[:1000])
+    print(joseki_dict.values())
+
 class PicturesDataset(Dataset):
     # data loading
     def __init__(self,games, num_moves):
@@ -331,7 +348,7 @@ class PicturesDataset(Dataset):
                     channel_49(datas, game_start, j, labels)
                     channel_1015(datas, game_start, x, y, j)
                 game_start += 1
-        
+        #find_joseki(datas[:,:2,:,:])
         self.x = torch.tensor(datas)
         self.y = torch.tensor(labels).long()
         self.n_samples = total_moves
@@ -501,17 +518,13 @@ if __name__ == "__main__":
     path = 'D:\codes\python\.vscode\Transformer_Go\datas\data_240119.csv'
 
     data_source = "pros"
-    data_type = 'Pretrain'
+    data_type = 'Picture'
     num_moves = 80
     data_size = 20
     split_rate = 0.1
     be_top_left = False
     trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-    print(trainData.x[2])
-    print(trainData.y[2])
-    print(trainData.mask[2])
-    print(trainData.token_type[2])
-    print(trainData.next_sentence_labels[2])
+    
     print(trainData.n_samples)
 
 
