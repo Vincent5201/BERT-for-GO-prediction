@@ -94,9 +94,16 @@ def transfer(step):
 def transfer_back(step):
     return chr(int(step/19)+97)+chr(int(step%19)+97)
 
-def stepbystep(game):
+def stepbystep(game, min_move=None, max_move=None):
     num_moves = len(game)
-    rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(num_moves)]
+    if min_move is None and max_move is None:
+        rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(num_moves)]
+    elif min_move is None:
+        rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(max_move)]
+    elif max_move is None:
+        rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(min_move, num_moves)]
+    else:
+        rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(min_move, max_move)]
     return rgames
 
 def get_tensor_memory_size(tensor):
@@ -323,7 +330,7 @@ def find_joseki(games):
 
 class PicturesDataset(Dataset):
     # data loading
-    def __init__(self,games, num_moves):
+    def __init__(self,games, num_moves, mim_move=None, max_move = None):
         moves_num = []
         for game in games:
             moves_num.append(len(game))
@@ -348,7 +355,7 @@ class PicturesDataset(Dataset):
                     channel_49(datas, game_start, j, labels)
                     channel_1015(datas, game_start, x, y, j)
                 game_start += 1
-        find_joseki(datas[:,:2,:,:])
+        #find_joseki(datas[:,:2,:,:])
         self.x = torch.tensor(datas)
         self.y = torch.tensor(labels).long()
         self.n_samples = total_moves
@@ -361,10 +368,10 @@ class PicturesDataset(Dataset):
 
 class WordsDataset(Dataset):
     # data loading
-    def __init__(self, games, num_moves):
+    def __init__(self, games, num_moves, mim_move=None, max_move=None):
         gamesall = []
         for game in tqdm(games, total = len(games), leave=False):
-            result = stepbystep(game)
+            result = stepbystep(game, mim_move, max_move)
             gamesall.append(result)
         gamesall = np.array(gamesall)
         gamesall = gamesall.reshape(gamesall.shape[0]*gamesall.shape[1],gamesall.shape[2]) 
@@ -479,7 +486,7 @@ class BERTPretrainDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True):
+def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True, min_move=None, max_move=None):
     df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip').head(data_size)
     df = df.sample(frac=1,replace=False).reset_index(drop=True).to_numpy()
     before_chcek = len(df)
@@ -501,11 +508,11 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
     if data_type == 'Word':
         if train:
             train_dataset = WordsDataset(games[split:],  num_moves)
-        eval_dataset = WordsDataset(games[:split],  num_moves)
+        eval_dataset = WordsDataset(games[:split],  num_moves, min_move, max_move)
     elif data_type == 'Picture':
         if train:
             train_dataset = PicturesDataset(games[split:], num_moves)
-        eval_dataset = PicturesDataset(games[:split], num_moves)
+        eval_dataset = PicturesDataset(games[:split], num_moves, min_move, max_move)
     elif data_type == "Pretrain":
         train_dataset = BERTPretrainDataset(games, num_moves)
         eval_dataset = None

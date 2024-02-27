@@ -7,15 +7,17 @@ from use import next_moves
 from myModels import get_model
 from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
 
-def myaccn(pred, true, n):
+def myaccn_split(pred, true, n):
     total = len(true)
-    correct = 0
+    correct = [0]*16
     for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
         sorted_indices = (-p).argsort()
         top_k_indices = sorted_indices[:n]  
         if true[i] in top_k_indices:
-            correct += 1
-    return correct / total
+            correct[int((i%80)/5)] += 1
+    for i in range(16):
+        correct[i] /= (total/16)
+    return correct 
 
 def score_legal_self(data_type, num_moves, model):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
@@ -169,36 +171,55 @@ def acc(data_type, model, device, test_loader):
     true = torch.stack(true)
     true = torch.tensor(true).cpu().numpy()
     preds = torch.tensor(preds).cpu().numpy()
-    print(f'accuracy30:{myaccn(predl,true,30)}')
-    print(f'accuracy10:{myaccn(predl,true,10)}')
-    print(f'accuracy5:{myaccn(predl,true, 5)}')
-    print(f'accuracy:{accuracy_score(preds,true)}')
-
+    return myaccn_split(predl,true,10), myaccn_split(predl,true,5), myaccn_split(predl,true,1)
 
 if __name__ == "__main__":
     batch_size = 64
     num_epochs = 50
     max_len = 80
-    lr = 5e-4
-    data_size = 11000
+    data_size = 30000
     path = 'datas/data_240119.csv'
-    data_type = "Word" 
+    data_type = "Picture" 
     data_source = "pros" 
     num_moves = 80 
     split_rate = 0.1
     be_top_left = False
-    model_name = "BERT"
+    model_name = "ResNet"
     model_size = "mid"
     device = "cuda:1"
     save = True
-    _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, False)
+    min_move = 0
+    max_move = 5
+    acc10s = []
+    acc5s = []
+    acc1s = []
     model = get_model(model_name, model_size)
-    state = torch.load('models_80/BERT1.pt')
+    state = torch.load('models_80/ResNet1_30000.pt')
     model.load_state_dict(state)
     model = model.to(device)
-    test_loader = DataLoader(testData, batch_size=batch_size, shuffle=True)
-    acc(data_type, model, device, test_loader)
-    
+    _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
+                                , be_top_left, False, min_move=min_move,max_move=max_move)
+    test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
+    acc10, acc5, acc1 = acc(data_type, model, device, test_loader)
+    print(acc10)
+    print(acc5)
+    print(acc1)
+
+    """
+    while(max_move <= num_moves):
+        _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
+                                , be_top_left, False, min_move=min_move,max_move=max_move)
+        test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
+        acc10, acc5, acc1 = acc(data_type, model, device, test_loader)
+        acc10s.append(acc10)
+        acc5s.append(acc5)
+        acc1s.append(acc1)
+        min_move += 5
+        max_move += 5
+    print(acc10s)
+    print(acc5s)
+    print(acc1s)
+    """
 
     """
     data_type = 'Picture'
