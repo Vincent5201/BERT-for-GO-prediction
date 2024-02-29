@@ -139,34 +139,42 @@ def get_model(name, level, state_path = None, config_path = None):
         args = args[name][level]
 
     if name == 'BERT':
-        if state_path is None or config_path is None:
-            config = BertConfig() 
-            config.hidden_size = args["hidden_size"]
-            config.num_hidden_layers = args["num_hidden_layers"]
-            config.vocab_size = 365
-            config.num_attention_heads = 1
-            config.intermediate_size = config.hidden_size*4
-            config.position_embedding_type = "relative_key"
-            model = Bert_Go(config, 361)
-        else:
-            tensors = {}
-            with safe_open(state_path, framework="pt") as f:
-                for k in f.keys():
-                    split_k = k.split('.')
-                    if split_k[0] == 'bert':
-                        kk = k[5:]
-                    else:
-                        kk = k
-                    tensors[kk] = f.get_tensor(k)
-            keys_to_delete = ["cls.predictions.bias", "cls.predictions.transform.LayerNorm.bias", "cls.predictions.transform.LayerNorm.weight",
-                               "cls.predictions.transform.dense.bias", "cls.predictions.transform.dense.weight", "cls.seq_relationship.bias", "cls.seq_relationship.weight"]
-            for key in keys_to_delete:
-                del tensors[key]
-            config = BertConfig.from_json_file(config_path)
-            pretrained_model = BertModel(config)
-            pretrained_model.load_state_dict(tensors)
-            model = Bert_Go(config, 361, pretrained_model)
-    elif name == 'BERTxpretrain':
+        config = BertConfig() 
+        config.hidden_size = args["hidden_size"]
+        config.num_hidden_layers = args["num_hidden_layers"]
+        config.vocab_size = 364
+        config.num_attention_heads = 1
+        config.intermediate_size = config.hidden_size*4
+        config.position_embedding_type = "relative_key"
+        model = Bert_Go(config, 361)
+    elif name == "BERTp":
+        config = BertConfig() 
+        config.hidden_size = args["hidden_size"]
+        config.num_hidden_layers = args["num_hidden_layers"]
+        config.vocab_size = 365
+        config.num_attention_heads = 1
+        config.intermediate_size = config.hidden_size*4
+        config.position_embedding_type = "relative_key"
+        model = Bert_Go(config, 361)
+    elif name == "BERTxpretrained":
+        tensors = {}
+        with safe_open(state_path, framework="pt") as f:
+            for k in f.keys():
+                split_k = k.split('.')
+                if split_k[0] == 'bert':
+                    kk = k[5:]
+                else:
+                    kk = k
+                tensors[kk] = f.get_tensor(k)
+        keys_to_delete = ["cls.predictions.bias", "cls.predictions.transform.LayerNorm.bias", "cls.predictions.transform.LayerNorm.weight",
+                            "cls.predictions.transform.dense.bias", "cls.predictions.transform.dense.weight", "cls.seq_relationship.bias", "cls.seq_relationship.weight"]
+        for key in keys_to_delete:
+            del tensors[key]
+        config = BertConfig.from_json_file(config_path)
+        pretrained_model = BertModel(config)
+        pretrained_model.load_state_dict(tensors)
+        model = Bert_Go(config, 361, pretrained_model)
+    elif name == 'pretrainxBERT':
         args = args['BERT'][level]
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]

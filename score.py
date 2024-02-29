@@ -7,16 +7,16 @@ from use import next_moves
 from myModels import get_model
 from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
 
-def myaccn_split(pred, true, n):
+def myaccn_split(pred, true, n, split):
     total = len(true)
-    correct = [0]*16
+    correct = [0]*split
     for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
         sorted_indices = (-p).argsort()
         top_k_indices = sorted_indices[:n]  
         if true[i] in top_k_indices:
-            correct[int((i%80)/5)] += 1
-    for i in range(16):
-        correct[i] /= (total/16)
+            correct[int((i%total)/int(total/split))] += 1
+    for i in range(split):
+        correct[i] /= (total/split)
     return correct 
 
 def score_legal_self(data_type, num_moves, model):
@@ -145,7 +145,7 @@ def score_feature_self(data_type, num_moves, model, bounds):
         records.append(games[0])
     return [near/total for near in nears], atari/total, liberty/total
 
-def acc(data_type, model, device, test_loader):
+def acc(data_type, model, device, test_loader, split):
     model.eval()
     preds = []
     predl = []
@@ -171,100 +171,78 @@ def acc(data_type, model, device, test_loader):
     true = torch.stack(true)
     true = torch.tensor(true).cpu().numpy()
     preds = torch.tensor(preds).cpu().numpy()
-    return myaccn_split(predl,true,10), myaccn_split(predl,true,5), myaccn_split(predl,true,1)
+    return myaccn_split(predl,true,10,split), myaccn_split(predl,true,5,split), myaccn_split(predl,true,1,split)
 
-if __name__ == "__main__":
+
+def score_acc(num_moves, data_type, model):
+    
     batch_size = 64
-    num_epochs = 50
-    max_len = 80
     data_size = 30000
     path = 'datas/data_240119.csv'
-    data_type = "Picture" 
     data_source = "pros" 
-    num_moves = 80 
     split_rate = 0.1
     be_top_left = False
-    model_name = "ResNet"
-    model_size = "mid"
-    device = "cuda:1"
-    save = True
     min_move = 0
     max_move = 5
-    acc10s = []
-    acc5s = []
-    acc1s = []
-    model = get_model(model_name, model_size)
-    state = torch.load('models_80/ResNet1_30000.pt')
-    model.load_state_dict(state)
-    model = model.to(device)
+    split = int(num_moves/(max_move-min_move))
     _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
                                 , be_top_left, False, min_move=min_move,max_move=max_move)
     test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
-    acc10, acc5, acc1 = acc(data_type, model, device, test_loader)
+    acc10, acc5, acc1 = acc(data_type, model, device, test_loader, split)
     print(acc10)
     print(acc5)
     print(acc1)
+    
 
-    """
-    while(max_move <= num_moves):
-        _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
-                                , be_top_left, False, min_move=min_move,max_move=max_move)
-        test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
-        acc10, acc5, acc1 = acc(data_type, model, device, test_loader)
-        acc10s.append(acc10)
-        acc5s.append(acc5)
-        acc1s.append(acc1)
-        min_move += 5
-        max_move += 5
-    print(acc10s)
-    print(acc5s)
-    print(acc1s)
-    """
+def score_self(num_moves, data_type, model, score_type):
+    if score_type == "score":
+        score, moves_score, full_score, records = score_legal_self(data_type, num_moves, model)
+        print(f'score:{score}/{full_score}')
+        print(f'moves_score:{moves_score/full_score}/{num_moves}')
+    elif score_type == "feature":
+        bounds = [1.5, 2.9, 4.3, 5.7, 7.1, 8.5]
+        near, atari, liberty = score_feature_self(data_type, num_moves, model, bounds)
+        print(f'near:{near}')
+        print(f'atari:{atari}')
+        print(f'liberty:{liberty}')
 
-    """
-    data_type = 'Picture'
-    num_moves = 80
-    model = get_model("ST", "mid").to("cuda:1")
-    state = torch.load('/home/F74106165/Transformer_Go/models/ST1.pt')
-    model.load_state_dict(state)
-    bounds = [1.5, 2.9, 4.3, 5.7, 7.1, 8.5]
-    near, atari, liberty = score_feature_self(data_type, num_moves, model, bounds)
-    print(f'near:{near}')
-    print(f'atari:{atari}')
-    print(f'liberty:{liberty}')
-    """
-    """
-    # score self
-    data_type = 'Picture'
-    num_moves = 80
-    model = get_model("ResNet", "mid").to("cuda:1")
-    state = torch.load('/home/F74106165/Transformer_Go/models_80/ResNet1_1600.pt')
-    model.load_state_dict(state)
-    score, moves_score, full_score, records = score_legal_self(data_type, num_moves, model)
-    print(f'score:{score}/{full_score}')
-    print(f'moves_score:{moves_score/full_score}/{num_moves}')
-    #print(records[1])
-    """
-    """
+
+def score_more(num_moves, device, model_size):
+    
     #score more
     data_types = ['Word', 'Picture', 'Picture', 'Picture']
-    num_moves = 80
-    model1 = get_model("BERT", 0).to("cuda:1")
-    state1 = torch.load('/home/F74106165/go_data/BERT/models/BERT0.pt')
-    model1.load_state_dict(state)
-    model2 = get_model("ResNet", 0).to("cuda:1")
-    state2 = torch.load('/home/F74106165/go_data/BERT/models/BERT0.pt')
-    model2.load_state_dict(state)
-    model3 = get_model("Vit", 0).to("cuda:1")
-    state3 = torch.load('/home/F74106165/go_data/BERT/models/BERT0.pt')
-    model3.load_state_dict(state)
-    model4 = get_model("ResNetxViT", 0).to("cuda:1")
-    state4 = torch.load('/home/F74106165/go_data/BERT/models/BERT0.pt')
-    model4.load_state_dict(state)
+    model_names = ["BERT", "ResNet", "ViT", "ST"]
+    states = ['/home/F74106165/go_data/BERT/models/BERT0.pt',
+              '/home/F74106165/go_data/BERT/models/BERT0.pt',
+              '/home/F74106165/go_data/BERT/models/BERT0.pt',
+              '/home/F74106165/go_data/BERT/models/BERT0.pt']
 
-    models = [model1, model2, model3, model4]
+    models = []
+    for i in range(len(model_names)):
+        model = get_model(model_names[i], model_size).to(device)
+        state = torch.load(states[i])
+        model.load_state_dict(state)
+        models.append(model)
+
     score, moves_score, full_score, errors = score_legal_more(data_types, num_moves, models)
     print(f'score:{score}/{full_score}')
     print(f'moves_score:{moves_score}/{full_score*num_moves}')
     print(f'error:{errors}')
-    """
+    
+
+if __name__ == "__main__":
+    num_moves = 80
+    data_type = "Word"
+    model_name = "BERT"
+    model_size = "mid"
+    device = "cuda:1"
+    state = torch.load('models_80/BERT11p1_140000_11000.pt')
+    
+    model = get_model(model_name, model_size).to(device)
+    model.load_state_dict(state)
+
+    score_acc(num_moves, data_type, model)
+    #score_self(num_moves, data_type, model, "score")
+    #score_more(num_moves, device, model_size)
+   
+    

@@ -368,7 +368,7 @@ class PicturesDataset(Dataset):
 
 class WordsDataset(Dataset):
     # data loading
-    def __init__(self, games, num_moves, mim_move=None, max_move=None):
+    def __init__(self, games, num_moves, mim_move=None, max_move=None, train=True):
         gamesall = []
         for game in tqdm(games, total = len(games), leave=False):
             result = stepbystep(game, mim_move, max_move)
@@ -376,8 +376,9 @@ class WordsDataset(Dataset):
         gamesall = np.array(gamesall)
         gamesall = gamesall.reshape(gamesall.shape[0]*gamesall.shape[1],gamesall.shape[2]) 
         print("steps finish")
-        gamesall = np.unique(gamesall, axis=0)
-        print("unique finish")
+        if train:
+            gamesall = np.unique(gamesall, axis=0)
+            print("unique finish")
 
         total_steps = gamesall.shape[0]
         y = [0]*(total_steps)
