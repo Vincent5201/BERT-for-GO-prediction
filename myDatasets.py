@@ -59,9 +59,11 @@ def top_left(games):
             continue
     return lgames
 
-def check(game, data_source):
+def check(game, data_source, num_moves):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
                    "pc", "pp", "pq", "qp","cc", "cq", "qc","qq"]
+    if len(game) < num_moves:
+        return False
     for i, step in enumerate(game):
         if isinstance(step, float):
             return True
@@ -491,7 +493,7 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
     df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip').head(data_size)
     df = df.sample(frac=1,replace=False).reset_index(drop=True).to_numpy()
     before_chcek = len(df)
-    games = [game for game in df if check(game, data_source)]
+    games = [game for game in df if check(game, data_source, num_moves)]
     after_check = len(games)
     print(f'check_rate:{after_check/before_chcek}')
     print(f'has {after_check} games')
