@@ -539,9 +539,7 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
             train_dataset = PicturesDataset(games[split:], num_moves)
         eval_dataset = PicturesDataset(games[:split], num_moves, min_move, max_move)
     elif data_type == "Pretrain":
-        print(len(games))
         games = extend(games)
-        print(len(games))
         train_dataset = BERTPretrainDataset(games, num_moves)
         eval_dataset = None
     if not train_dataset is None:
