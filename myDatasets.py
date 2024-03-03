@@ -513,7 +513,6 @@ class BERTPretrainDataset(Dataset):
 
 def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True, min_move=None, max_move=None):
     df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip').head(data_size)
-    df = df.sample(frac=1,replace=False).reset_index(drop=True).to_numpy()
     before_chcek = len(df)
     games = [game for game in df if check(game, data_source, num_moves)]
     after_check = len(games)
