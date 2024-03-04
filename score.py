@@ -7,14 +7,14 @@ from use import next_moves
 from myModels import get_model
 from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
 
-def myaccn_split(pred, true, n, split):
+def myaccn_split(pred, true, n, split, num_move):
     total = len(true)
     correct = [0]*split
     for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
         sorted_indices = (-p).argsort()
         top_k_indices = sorted_indices[:n]  
         if true[i] in top_k_indices:
-            correct[int((i%total)/int(total/split))] += 1
+            correct[int((i%num_move)/int(num_move/split))] += 1
     for i in range(split):
         correct[i] /= (total/split)
     return correct 
@@ -201,7 +201,7 @@ def prediction(data_type, model, device, test_loader):
 def score_acc(num_moves, data_type, model):
     
     batch_size = 64
-    data_size = 3000
+    data_size = 30000
     path = 'datas/data_240119.csv'
     data_source = "pros" 
     split_rate = 0.1
@@ -210,12 +210,13 @@ def score_acc(num_moves, data_type, model):
     max_move = 5
     split = int(num_moves/(max_move-min_move))
     _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
-                                , be_top_left, False, min_move=min_move,max_move=max_move)
+                                , be_top_left, train=False)
+    print(testData.x.shape)
     test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
     predl, true = prediction(data_type, model, device, test_loader)
-    acc10 = myaccn_split(predl,true,10,split)
-    acc5 = myaccn_split(predl,true,5,split)
-    acc1 = myaccn_split(predl,true,1,split)
+    acc10 = myaccn_split(predl,true,10,split, num_moves)
+    acc5 = myaccn_split(predl,true,5,split, num_moves)
+    acc1 = myaccn_split(predl,true,1,split, num_moves)
     print(acc10)
     print(acc5)
     print(acc1)
@@ -223,7 +224,7 @@ def score_acc(num_moves, data_type, model):
 def compare_correct(num_moves, device, models, data_types):
 
     batch_size = 64
-    data_size = 30000
+    data_size = 3000
     path = 'datas/data_240119.csv'
     data_source = "pros" 
     split_rate = 0.1
@@ -245,6 +246,7 @@ def compare_correct(num_moves, device, models, data_types):
 def score_self(num_moves, data_type, model, score_type):
     if score_type == "score":
         score, moves_score, full_score, records = score_legal_self(data_type, num_moves, model)
+        print(records)
         print(f'score:{score}/{full_score}')
         print(f'moves_score:{moves_score/full_score}/{num_moves}')
     elif score_type == "feature":
@@ -281,17 +283,17 @@ def score_more(num_moves, device, model_size, score_type):
 
 if __name__ == "__main__":
     num_moves = 80
-    data_type = "Picture"
-    model_name = "ResNet"
+    data_type = "Word"
+    model_name = "BERTp"
     model_size = "mid"
     device = "cuda:1"
-    state = torch.load('models_80/ResNet1_30000.pt')
+    state = torch.load('models_80/BERT11p1_140000_35000.pt')
     
     model = get_model(model_name, model_size).to(device)
     model.load_state_dict(state)
 
-    #score_acc(num_moves, data_type, model)
+    score_acc(num_moves, data_type, model)
     #score_self(num_moves, data_type, model, "score")
-    score_more(num_moves, device, model_size, "correct_compare")
+    #score_more(num_moves, device, model_size, "correct_compare")
    
     
