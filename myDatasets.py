@@ -129,50 +129,6 @@ def stepbystep(game, min_move=None, max_move=None):
         rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(min_move, max_move)]
     return rgames
 
-def extend(games):
-    m0 = [[i * 19 + j for j in range(19)] for i in range(19)]
-    mflip = np.transpose(np.array(copy.deepcopy(m0)))
-    m90 = rotate(copy.deepcopy(m0))
-    games90 = []
-    games180 = []
-    games270 = []
-    for game in games:
-        game90 = copy.deepcopy(game)
-        game90 = transformG(game90, m90)
-        games90.append(game90)
-        game180 = copy.deepcopy(game90)
-        game180 = transformG(game180, m90)
-        games180.append(game180)
-        game270 = copy.deepcopy(game180)
-        game270 = transformG(game270, m90)
-        games270.append(game270)
-    
-    games = np.concatenate((np.array(games),np.array(games90), np.array(games180), np.array(games270)), axis=0)
-    return games
-
-
-def extend(games):
-    m0 = [[i * 19 + j for j in range(19)] for i in range(19)]
-    mflip = np.transpose(np.array(copy.deepcopy(m0)))
-    m90 = rotate(copy.deepcopy(m0))
-    games90 = []
-    games180 = []
-    games270 = []
-    for game in games:
-        game90 = copy.deepcopy(game)
-        game90 = transformG(game90, m90)
-        games90.append(game90)
-        game180 = copy.deepcopy(game90)
-        game180 = transformG(game180, m90)
-        games180.append(game180)
-        game270 = copy.deepcopy(game180)
-        game270 = transformG(game270, m90)
-        games270.append(game270)
-    
-    games = np.concatenate((np.array(games),np.array(games90), np.array(games180), np.array(games270)), axis=0)
-    return games
-
-
 def get_tensor_memory_size(tensor):
     numel = tensor.numel()
     element_size = tensor.element_size()
@@ -595,14 +551,12 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
 
 
 if __name__ == "__main__":
-    path = 'D:\codes\python\.vscode\Transformer_Go\datas\data_240119.csv'
-    path = 'D:\codes\python\.vscode\Transformer_Go\datas\data_240119.csv'
+    path = 'datas/data_240119.csv'
 
     data_source = "pros"
-    data_type = 'Pretrain'
-    data_type = 'Pretrain'
+    data_type = 'Picture'
     num_moves = 80
-    data_size = 30
+    data_size = 30000
     split_rate = 0.1
     be_top_left = False
     trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
