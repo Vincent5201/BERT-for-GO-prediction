@@ -2,46 +2,15 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
-from sklearn.metrics import accuracy_score
+import copy
+import math
 from use import next_moves
 from myModels import get_model
 from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
 
-def myaccn_split(pred, true, n, split, num_move):
-    total = len(true)
-    correct = [0]*split
-    for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
-        sorted_indices = (-p).argsort()
-        top_k_indices = sorted_indices[:n]  
-        if true[i] in top_k_indices:
-            correct[int((i%num_move)/int(num_move/split))] += 1
-    for i in range(split):
-        correct[i] /= (total/split)
-    return correct 
 
-def compare_acc(predls, true, n):
-    
-    total = len(true)
-    record = np.zeros([3, total])
-    for i, pred in enumerate(predls):
-        for j, p in enumerate(pred):
-            sorted_indices = (-p).argsort()
-            top_k_indices = sorted_indices[:n]  
-            if true[j] in top_k_indices:
-                record[i][j] = 1
-    
-    analyze_count = [0]*8
-    for j in range(total):
-        for i in range(8):
-            binary = bin(i)[2:]
-            check = True
-            for k in range(len(binary)):
-                if binary[-1-k] == "1" and record[k][j] == 0:
-                    check = False
-                    break
-            if check:
-                analyze_count[i] += 1
-    return record, analyze_count
+
+
 
 def score_legal_self(data_type, num_moves, model):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
@@ -76,44 +45,7 @@ def score_legal_self(data_type, num_moves, model):
         records.append(games[0])
     return score, moves_score, full_score, records
 
-def score_legal_more(data_types, num_moves, models):
-    first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
-                   "pc", "pp", "pq", "qp","cc", "cq", "qc","qq"]
-    scores = [0]*len(models)
-    moves_scores = [0]*len(models)
-    errors = [0]*len(models)
-    full_score = len(first_steps) * len(models)
-    records = []
-    for i, model1 in enumerate(models):
-        for j, model2 in enumerate(models):
-            for step in first_steps:
-                full_score += 1
-                games = [[step]]
-                while(len(games[0]) < num_moves):
-                    if(len(games[0])%2):
-                        next_move = next_moves(data_types[i], num_moves, model1, games, 1)[0]
-                        next_move = transfer_back(next_move)
-                    else:
-                        next_move = next_moves(data_types[j], num_moves, model2, games, 1)[0]
-                        next_move = transfer_back(next_move)
-                    if next_move in games[0]:
-                        if(len(games[0])%2):
-                            errors[i] += 1
-                        else:
-                            errors[j] += 1
-                        moves_scores[i] += len(games[0])
-                        moves_scores[j] += len(games[0])
-                        break
-                    else:
-                        games[0].append(next_move)
 
-                if len(games[0]) == num_moves:
-                    scores[i] += 1
-                    scores[j] += 1
-                    moves_scores[i] += num_moves
-                    moves_scores[j] += num_moves
-                records.append(games[0])
-    return scores, moves_scores, full_score, errors, records
 
 def score_feature_self(data_type, num_moves, model, bounds):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
@@ -169,6 +101,8 @@ def score_feature_self(data_type, num_moves, model, bounds):
         records.append(games[0])
     return [near/total for near in nears], atari/total, liberty/total
 
+
+
 def prediction(data_type, model, device, test_loader):
     model.eval()
     preds = []
@@ -197,56 +131,43 @@ def prediction(data_type, model, device, test_loader):
     preds = torch.tensor(preds).cpu().numpy()
     return predl, true
 
+def myaccn_split(pred, true, n, split, num_move):
+    total = len(true)
+    correct = [0]*split
+    for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
+        sorted_indices = (-p).argsort()
+        top_k_indices = sorted_indices[:n]  
+        if true[i] in top_k_indices:
+            correct[int((i%num_move)/int(num_move/split))] += 1
+    for i in range(split):
+        correct[i] /= (total/split)
+    return correct 
 
-def score_acc(num_moves, data_type, model):
+def score_acc(num_moves, data_type, model, split, data_size):
     
     batch_size = 64
-    data_size = 30000
     path = 'datas/data_240119.csv'
     data_source = "pros" 
     split_rate = 0.1
-    be_top_left = False
-    min_move = 0
-    max_move = 5
-    split = int(num_moves/(max_move-min_move))
     _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
-                                , be_top_left, train=False)
-    print(testData.x.shape)
+                                ,be_top_left=False, train=False)
     test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
     predl, true = prediction(data_type, model, device, test_loader)
     acc10 = myaccn_split(predl,true,10,split, num_moves)
     acc5 = myaccn_split(predl,true,5,split, num_moves)
     acc1 = myaccn_split(predl,true,1,split, num_moves)
-    print(acc10)
-    print(acc5)
-    print(acc1)
-    
-def compare_correct(num_moves, device, models, data_types):
+    return acc10, acc5, acc1
 
-    batch_size = 64
-    data_size = 3000
-    path = 'datas/data_240119.csv'
-    data_source = "pros" 
-    split_rate = 0.1
-    be_top_left = False
-    predls = []
-    for i, model in enumerate(models):
-        _, testData = get_datasets(path, data_types[i], data_source, data_size, num_moves, split_rate
-                                , be_top_left, train=False)
-        test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
-        true = testData.y
-        predl, true = prediction(data_types[i], model, device, test_loader)
-        predls.append(predl)
-    record1, analyze_count1 = compare_acc(predls, true, 1)
-    for i in range(1,8):
-        analyze_count1[i] /= analyze_count1[0]
-    return record1, analyze_count1
+def score_self(num_moves, model_size, device, score_type):
+    data_type = "Word"
+    model_name = "BERT"
+    state = torch.load('models_80/BERT11_30000.pt')
+    model = get_model(model_name, model_size).to(device)
+    model.load_state_dict(state)
 
-
-def score_self(num_moves, data_type, model, score_type):
     if score_type == "score":
         score, moves_score, full_score, records = score_legal_self(data_type, num_moves, model)
-        print(records)
+       # print(records)
         print(f'score:{score}/{full_score}')
         print(f'moves_score:{moves_score/full_score}/{num_moves}')
     elif score_type == "feature":
@@ -255,15 +176,133 @@ def score_self(num_moves, data_type, model, score_type):
         print(f'near:{near}')
         print(f'atari:{atari}')
         print(f'liberty:{liberty}')
+    elif score_type == "score_acc":
+        split = 16
+        data_size = 35000
+        acc10, acc5, acc1 = score_acc(num_moves, data_type, model, split, data_size)
+        prediction(acc10)
+        prediction(acc5)
+        prediction(acc1)
 
+def score_legal_more(data_types, num_moves, models):
+    first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
+                   "pc", "pp", "pq", "qp","cc", "cq", "qc","qq"]
+    scores = [0]*len(models)
+    moves_scores = [0]*len(models)
+    errors = [0]*len(models)
+    full_score = len(first_steps) * len(models)
+    records = []
+    for i, model1 in enumerate(models):
+        for j, model2 in enumerate(models):
+            for step in first_steps:
+                full_score += 1
+                games = [[step]]
+                while(len(games[0]) < num_moves):
+                    if(len(games[0])%2):
+                        next_move = next_moves(data_types[i], num_moves, model1, games, 1)[0]
+                        next_move = transfer_back(next_move)
+                    else:
+                        next_move = next_moves(data_types[j], num_moves, model2, games, 1)[0]
+                        next_move = transfer_back(next_move)
+                    if next_move in games[0]:
+                        if(len(games[0])%2):
+                            errors[i] += 1
+                        else:
+                            errors[j] += 1
+                        moves_scores[i] += len(games[0])
+                        moves_scores[j] += len(games[0])
+                        break
+                    else:
+                        games[0].append(next_move)
 
-def score_more(num_moves, device, model_size, score_type):
+                if len(games[0]) == num_moves:
+                    scores[i] += 1
+                    scores[j] += 1
+                    moves_scores[i] += num_moves
+                    moves_scores[j] += num_moves
+                records.append(games[0])
+    return scores, moves_scores, full_score, errors, records
+
+def class_correct_moves(predls, true, n):
+    records = [[] for _ in range(8)]
+    print("start classiy")
+    for j in tqdm(range(len(true)), total=len(true), leave=False):
+        pos = 0
+        for i in range(3):
+            pos *= 2
+            sorted_indices = (-(predls[i][j])).argsort()
+            top_k_indices = sorted_indices[:n]  
+            if true[j] in top_k_indices:
+                pos += 1
+        records[pos].append(j)
+    return records
+
+def check_liberty(inp, trues, tgt, num_move):
+    x = int((trues[tgt]-1)/19)
+    y = int((trues[tgt]-1)%19)
+    plane = copy.deepcopy(np.array(inp[tgt]))
+    plane = np.expand_dims(plane, axis=0)
+    channel_01(plane, 0, x, y, tgt%num_move+1)
+    channel_2(plane, 0)
+    return channel_1015(plane, 0, x, y, tgt%num_move+1)
+
+def check_distance(trues, tgt):
+    if tgt%80:
+        x = int((trues[tgt]-1)/19)
+        y = int((trues[tgt]-1)%19)
+        xl = int((trues[tgt-1]-1)/19)
+        yl = int((trues[tgt-1]-1)%19)
+        return math.sqrt(math.pow(x-xl,2)+math.pow(y-yl,2))
+    return None
+
+def compare_correct(num_moves, device, models, data_types, data_size):
+
+    batch_size = 64
+    path = 'datas/data_240119.csv'
+    data_source = "pros" 
+    split_rate = 0.1
+    be_top_left = False
+    predls = []
+    _, testDataW = get_datasets(path, "Word", data_source, data_size, num_moves, split_rate
+                                , be_top_left, train=False)
+    _, testDataP = get_datasets(path, "Picture", data_source, data_size, num_moves, split_rate
+                                , be_top_left, train=False)
+    for i, model in enumerate(models):
+        if data_types[i] == "Word":
+            test_loader = DataLoader(testDataW, batch_size=batch_size, shuffle=False)
+        else:
+            test_loader = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
+        predl, true = prediction(data_types[i], model, device, test_loader)
+        predls.append(predl)
+        
+    record1 = class_correct_moves(predls, true, 1)
+    total = len(true)
+
+    count = [len(record)/total for record in record1]
+
+    move_nums = [[move%num_moves for move in record] for record in record1]
+    avg_move_num = [sum(move_num)/len(move_num) for move_num in move_nums]
+    
+    avg_liberty = [0]*len(record1)
+    for i, record in tqdm(enumerate(record1), total=len(record1)):
+        for move in record:
+            avg_liberty[i] += check_liberty(testDataP.x, testDataP.y, move, num_moves)
+    avg_liberty = [liberty/len(record1[i]) for i, liberty in enumerate(avg_liberty)]
+    
+    avg_distance = [[check_distance(true, move) for move in record] for record in record1]
+    avg_distance = [[distance for distance in distances if not distance is None] for distances in avg_distance]
+    avg_distance = [sum(distance)/len(distance) for distance in avg_distance]
+    
+    return record1, count, avg_move_num, avg_liberty, avg_distance
+
+def score_more(num_moves, model_size, device, score_type):
+    
     data_types = ['Picture', 'Picture', 'Picture']
     model_names = ["ResNet", "ViT", "ST"]
     states = ['models_80/ResNet1_30000.pt',
               'models_80/ViT1_30000.pt',
               'models_80/ST1_30000.pt']
-
+    
     models = []
     for i in range(len(model_names)):
         model = get_model(model_names[i], model_size).to(device)
@@ -271,29 +310,27 @@ def score_more(num_moves, device, model_size, score_type):
         model.load_state_dict(state)
         models.append(model)
         
-
     if score_type == "legal":
         score, moves_score, full_score, errors = score_legal_more(data_types, num_moves, models)
         print(f'score:{score}/{full_score}')
         print(f'moves_score:{moves_score}/{full_score*num_moves}')
         print(f'error:{errors}')
     elif score_type == "correct_compare":
-        record, analyze_count = compare_correct(num_moves, device, models, data_types)
-        print(analyze_count)
+        data_size = 3000
+        records, count, avg_move_num, avg_liberty, avg_distance = compare_correct(
+            num_moves, device, models, data_types, data_size)
+        print(count)
+        print(avg_move_num)
+        print(avg_liberty)
+        print(avg_distance)
 
 if __name__ == "__main__":
     num_moves = 80
-    data_type = "Word"
-    model_name = "BERTp"
     model_size = "mid"
     device = "cuda:1"
-    state = torch.load('models_80/BERT11p1_140000_35000.pt')
-    
-    model = get_model(model_name, model_size).to(device)
-    model.load_state_dict(state)
+    score_type = "correct_compare"
 
-    score_acc(num_moves, data_type, model)
-    #score_self(num_moves, data_type, model, "score")
-    #score_more(num_moves, device, model_size, "correct_compare")
+    #score_self(num_moves, model_size, device, score_type)
+    score_more(num_moves, model_size, device, score_type)
    
     
