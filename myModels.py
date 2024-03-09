@@ -94,16 +94,17 @@ class myViT(nn.Module):
         y = self.linear(y)
         return y
 
+
 class Mix(nn.Module):
-    def __init__(self, model1, model2):
+    def __init__(self, models):
         super(Mix, self).__init__()
-        self.model1 = model1
-        self.model2 = model2
-        self.output = nn.Linear(722,361)
+        self.models = models
+        self.output = nn.Linear(361*len(models),361)
     def forward(self, x):
-        y1 = self.model1(x)
-        y2 = self.model2(x)
-        y = torch.cat([y1,y2],dim = -1)
+        y = []
+        for model in self.models:
+            y.append(model(x))
+        y = torch.cat(y,dim = -1)
         y = self.output(y)
         return y
     
@@ -221,15 +222,11 @@ def get_model(name, level, state_path = None, config_path = None):
         config.embed_dim = 64
         config.encoder_stride = 1
         model = myST(config, in_channel, config.num_channels, kernal_size)
-    elif name == 'ResNetxST':
-        model1 = get_model("ST", level)
-        model2 = get_model("ResNet", level)
-        model = Mix(model1, model2)
-    elif name == 'ViTxST':
+    elif name == 'Mix':
         model1 = get_model("ST", level)
         model2 = get_model("ViT", level)
-        model = Mix(model1, model2)
-    
+        model3 = get_model("ResNet", level)
+        model = Mix([model1, model2, model3])
     return model
 
 if __name__ == "__main__":
