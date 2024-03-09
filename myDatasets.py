@@ -470,7 +470,7 @@ class BERTPretrainDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True, min_move=None, max_move=None):
+def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True):
     df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip').head(data_size)
     df = df.sample(frac=1,replace=False,random_state=17).reset_index(drop=True).to_numpy()
     before_chcek = len(df)
@@ -492,11 +492,11 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
     if data_type == 'Word':
         if train:
             train_dataset = WordsDataset(games[split:],  num_moves)
-        eval_dataset = WordsDataset(games[:split],  num_moves, min_move, max_move, train=train)
+        eval_dataset = WordsDataset(games[:split],  num_moves, train=train)
     elif data_type == 'Picture':
         if train:
             train_dataset = PicturesDataset(games[split:], num_moves)
-        eval_dataset = PicturesDataset(games[:split], num_moves, min_move, max_move)
+        eval_dataset = PicturesDataset(games[:split], num_moves)
     elif data_type == "Pretrain":
         games = extend(games)
         train_dataset = BERTPretrainDataset(games, num_moves)
