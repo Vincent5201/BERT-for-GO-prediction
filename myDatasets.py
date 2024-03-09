@@ -67,14 +67,11 @@ def extend(games):
     games180 = []
     games270 = []
     for game in games:
-        game90 = copy.deepcopy(game)
-        game90 = transformG(game90, m90)
+        game90 = transformG(copy.deepcopy(game), m90)
         games90.append(game90)
-        game180 = copy.deepcopy(game90)
-        game180 = transformG(game180, m90)
+        game180 = transformG(copy.deepcopy(game90), m90)
         games180.append(game180)
-        game270 = copy.deepcopy(game180)
-        game270 = transformG(game270, m90)
+        game270 = transformG(copy.deepcopy(game180), m90)
         games270.append(game270)
     
     games = np.concatenate((np.array(games),np.array(games90), np.array(games180), np.array(games270)), axis=0)
@@ -117,23 +114,13 @@ def transfer(step):
 def transfer_back(step):
     return chr(int(step/19)+97)+chr(int(step%19)+97)
 
-def stepbystep(game, min_move=None, max_move=None):
+def stepbystep(game):
     num_moves = len(game)
-    if min_move is None and max_move is None:
-        rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(num_moves)]
-    elif min_move is None:
-        rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(max_move)]
-    elif max_move is None:
-        rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(min_move, num_moves)]
-    else:
-        rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(min_move, max_move)]
+    rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(num_moves)]
     return rgames
 
 def get_tensor_memory_size(tensor):
-    numel = tensor.numel()
-    element_size = tensor.element_size()
-    total_memory_size = numel * element_size
-    return total_memory_size
+    return tensor.numel() * tensor.element_size()
 
 def channel_01(datas, k, x, y, turn):
     #plain1 is black
@@ -179,12 +166,8 @@ def channel_01(datas, k, x, y, turn):
         if ans:
             # if die, delete it
             datas[k][p][x][y] = 0
-            datas[k][15][x][y] = 0
-            datas[k][14][x][y] = 0
-            datas[k][13][x][y] = 0
-            datas[k][12][x][y] = 0
-            datas[k][11][x][y] = 0
-            datas[k][10][x][y] = 0
+            for i in range(10,16):
+                datas[k][i][x][y] = 0
         return ans
     
     if turn % 2:
@@ -207,12 +190,17 @@ def channel_01(datas, k, x, y, turn):
             checkDie(x, y+1, 1)
     return
 
+def channel_2(datas, k):
+    # empty is 1
+    datas[k][2] = np.logical_not(np.logical_or(datas[k][0],datas[k][1])).astype(int)
+    return
+
 def channel_3(datas, k, turn):
     #next turn (all 1/0)
-    if turn % 2 == 0:
-        datas[k][3] = np.ones([19,19])
-    else:
+    if turn % 2:
         datas[k][3] = np.zeros([19,19])
+    else:
+        datas[k][3] = np.ones([19,19])
     return
 
 def channel_49(datas, k, turn, labels):
@@ -220,12 +208,8 @@ def channel_49(datas, k, turn, labels):
     turn = min(5, turn)
     p = 4
     kk = k-1
-    datas[k][4] = np.zeros([19,19])
-    datas[k][5] = np.zeros([19,19])
-    datas[k][6] = np.zeros([19,19])
-    datas[k][7] = np.zeros([19,19])
-    datas[k][8] = np.zeros([19,19])
-    datas[k][9] = np.zeros([19,19])
+    for i in range(4,10):
+        datas[k][i] = np.zeros([19,19])
     while turn >= 0:
         datas[k][p][int(labels[kk] / 19)][int(labels[kk] % 19)] = 1
         p += 1
@@ -284,12 +268,9 @@ def channel_1015(datas, k, x, y, turn):
                 else:
                     datas[k][i][x][y] = 0
         else:
+            for i in range(10,15):
+                datas[k][i][x][y] = 0
             datas[k][15][x][y] = 1
-            datas[k][14][x][y] = 0
-            datas[k][13][x][y] = 0
-            datas[k][12][x][y] = 0
-            datas[k][11][x][y] = 0
-            datas[k][10][x][y] = 0
         return 
     
     
@@ -306,6 +287,7 @@ def channel_1015(datas, k, x, y, turn):
             set_liberty(datas, k, x, y+1, p, liberty)
         datas[k][p][x][y] = 1
         return
+    
     if datas[k][2][x][y]:
         ret = 0
     else:
@@ -315,24 +297,15 @@ def channel_1015(datas, k, x, y, turn):
     if turn%2:
         pp = 0
     if x > 0 and datas[k][pp][x-1][y]:
-        ret1 = check_liberty(datas, k, x-1, y, pp)
-        set_liberty(datas, k, x-1, y, pp, ret1)
+        set_liberty(datas, k, x-1, y, pp, check_liberty(datas, k, x-1, y, pp))
     if y > 0 and datas[k][pp][x][y-1]:
-        ret2 = check_liberty(datas, k, x, y-1, pp)
-        set_liberty(datas, k, x, y-1, pp, ret2)
+        set_liberty(datas, k, x, y-1, pp, check_liberty(datas, k, x, y-1, pp))
     if x < 18 and datas[k][pp][x+1][y]:
-        ret3 = check_liberty(datas, k, x+1, y, pp)
-        set_liberty(datas, k, x+1, y, pp, ret3)
+        set_liberty(datas, k, x+1, y, pp, check_liberty(datas, k, x+1, y, pp))
     if y < 18 and datas[k][pp][x][y+1]:
-        ret4 = check_liberty(datas, k, x, y+1, pp)
-        set_liberty(datas, k, x, y+1, pp, ret4)
+        set_liberty(datas, k, x, y+1, pp, check_liberty(datas, k, x, y+1, pp))
 
     return ret
-
-def channel_2(datas, k):
-    # empty is 1
-    datas[k][2] = np.logical_not(np.logical_or(datas[k][0],datas[k][1])).astype(int)
-    return
 
 
 def find_joseki(games):
@@ -353,16 +326,15 @@ def find_joseki(games):
 
 class PicturesDataset(Dataset):
     # data loading
-    def __init__(self,games, num_moves, mim_move=None, max_move = None):
-        moves_num = []
+    def __init__(self,games, num_moves):
+        total_moves = 0
         for game in games:
-            moves_num.append(len(game))
-        total_moves = np.sum(moves_num)
+            total_moves += len(game)
         datas = np.zeros([total_moves,16,19,19],  dtype=np.float32)
         labels = np.zeros(total_moves)
 
         game_start = 0
-        for i, game in tqdm(enumerate(games),total=len(games), leave=False):
+        for _, game in tqdm(enumerate(games),total=len(games), leave=False):
             for j, move in enumerate(game):
                 labels[game_start] = move
                 if j == 0:
@@ -389,12 +361,14 @@ class PicturesDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
+
+
 class WordsDataset(Dataset):
     # data loading
-    def __init__(self, games, num_moves, mim_move=None, max_move=None, train=True):
+    def __init__(self, games, num_moves, train=True):
         gamesall = []
         for game in tqdm(games, total = len(games), leave=False):
-            result = stepbystep(game, mim_move, max_move)
+            result = stepbystep(game)
             gamesall.append(result)
         gamesall = np.array(gamesall)
         gamesall = gamesall.reshape(gamesall.shape[0]*gamesall.shape[1],gamesall.shape[2]) 
@@ -407,14 +381,13 @@ class WordsDataset(Dataset):
         y = [0]*(total_steps)
         for i in tqdm(range(total_steps), total=total_steps, leave=False):
             last = 0
-            while(last < num_moves and gamesall[i][last] != 0):
+            while(last < num_moves and gamesall[i][last]):
                 gamesall[i][last] += 1
                 last += 1
             last -= 1
             y[i] = gamesall[i][last]-1
             gamesall[i][last] = 362
         print("data finish")
-        gamesall = np.array(gamesall)
         gamesall = np.insert(gamesall, 0, 363, axis=1)
 
         self.x = torch.tensor(gamesall).long()
@@ -538,16 +511,16 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
 
 
 if __name__ == "__main__":
-    path = 'datas/data_240119.csv'
+    path = 'datas/data_Foxwq_9d.csv'
 
-    data_source = "pros"
-    data_type = 'Picture'
+    data_source = "foxwq"
+    data_type = 'Pretrain'
     num_moves = 80
-    data_size = 30000
+    data_size = 300
     split_rate = 0.1
     be_top_left = False
-    trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-  
-    print(trainData.n_samples)
+    trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=False)
+    print(trainData.x[11103])
+    print(trainData.x[31031])
 
 
