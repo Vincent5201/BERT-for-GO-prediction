@@ -324,6 +324,8 @@ def find_joseki(games):
             joseki_dict = dict(list(sorted_d.items())[:1000])
     print(joseki_dict.values())
 
+
+
 class PicturesDataset(Dataset):
     # data loading
     def __init__(self,games, num_moves):
@@ -470,9 +472,9 @@ class BERTPretrainDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True):
-    df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip').head(data_size)
-    df = df.sample(frac=1,replace=False,random_state=17).reset_index(drop=True).to_numpy()
+def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True, offset=0):
+    df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip')
+    df = df.sample(frac=1,replace=False,random_state=17).reset_index(drop=True).to_numpy()[offset:offset+data_size]
     before_chcek = len(df)
     games = [game for game in df if check(game, data_source, num_moves)]
     after_check = len(games)
