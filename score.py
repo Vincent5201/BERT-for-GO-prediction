@@ -4,12 +4,10 @@ import numpy as np
 from tqdm import tqdm
 import copy
 import math
+import random
 from use import next_moves
 from myModels import get_model
 from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
-
-
-
 
 
 def score_legal_self(data_type, num_moves, model):
@@ -121,11 +119,12 @@ def prediction(data_type, model, device, test_loader):
                 x = x.to(device)
                 y = y.to(device)
                 pred = model(x)
+            pred = torch.nn.functional.softmax(pred, dim=1)
             predl += pred
             ans = torch.max(pred,1).indices
             preds += ans
             true += y
-    predl = torch.stack(predl)
+    predl = torch.stack(predl).cpu().numpy()
     true = torch.stack(true)
     true = torch.tensor(true).cpu().numpy()
     preds = torch.tensor(preds).cpu().numpy()
@@ -159,15 +158,15 @@ def score_acc(num_moves, data_type, model, split, data_size):
     return acc10, acc5, acc1
 
 def score_self(num_moves, model_size, device, score_type):
-    data_type = "Word"
-    model_name = "BERT"
-    state = torch.load('models_80/BERT11_30000.pt')
+    data_type = "Picture"
+    model_name = "Mix"
+    state = torch.load('models_160/Mix2_1600.pt')
     model = get_model(model_name, model_size).to(device)
     model.load_state_dict(state)
 
     if score_type == "score":
         score, moves_score, full_score, records = score_legal_self(data_type, num_moves, model)
-       # print(records)
+        print(records)
         print(f'score:{score}/{full_score}')
         print(f'moves_score:{moves_score/full_score}/{num_moves}')
     elif score_type == "feature":
@@ -180,9 +179,9 @@ def score_self(num_moves, model_size, device, score_type):
         split = 16
         data_size = 35000
         acc10, acc5, acc1 = score_acc(num_moves, data_type, model, split, data_size)
-        prediction(acc10)
-        prediction(acc5)
-        prediction(acc1)
+        print(acc10)
+        print(acc5)
+        print(acc1)
 
 def score_legal_more(data_types, num_moves, models):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
@@ -255,6 +254,60 @@ def check_distance(trues, tgt):
         return math.sqrt(math.pow(x-xl,2)+math.pow(y-yl,2))
     return None
 
+def mix_acc_split(predls, true, n, split, num_move, smart=True):
+    total = len(true)
+    correct = [0]*split
+    
+    for i in tqdm(range(total), total=total, leave=False):
+        sorted_indices = []
+        sorted_p = []
+        for j, predl in enumerate(predls):
+            sorted_indices.append((-predl[i]).argsort()[:min(3*n,10)]) 
+            sorted_p.append(np.sort(predl[i])[::-1][:min(3*n,10)])
+        sorted_indices = np.array(sorted_indices)
+        sorted_p = np.array(sorted_p)
+        sorted_indices = sorted_indices.reshape(sorted_indices.shape[0]*sorted_indices.shape[1])
+        sorted_p = sorted_p.reshape(sorted_p.shape[0]*sorted_p.shape[1])
+        vote = {}
+        if smart:
+            #acc:49.2 for models_160
+            for j, idx in enumerate(sorted_indices):
+                for k in range(j+1, len(sorted_indices)):
+                    if idx == sorted_indices[k]:
+                        sorted_p[j] += sorted_p[k]
+            sorted_idx = np.argsort(sorted_p)[::-1]
+            choices = sorted_indices[sorted_idx][:n]
+            """
+            #acc:48.2 for models_160
+            for idx in sorted_indices:
+                if idx in vote.keys():
+                    vote[idx] += 1
+                else:
+                    vote[idx] = 1
+            sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
+            max_vote = 0
+            choices = []
+            for item in sorted_vote.items():
+                if max_vote:
+                    if item[1] == max_vote:
+                        choices.append(item[0])
+                    else:
+                        break
+                else:
+                    choices.append(item[0])
+                    max_vote = item[1]
+           # random.shuffle(choices)
+            choices = choices[:n]
+        else:
+            sorted_idx = np.argsort(sorted_p)[::-1]
+            choices = sorted_indices[sorted_idx][:n]
+        """
+        if true[i] in choices:
+            correct[int((i%num_move)/int(num_move/split))] += 1
+    for i in range(split):
+        correct[i] /= (total/split)
+    return correct 
+
 def compare_correct(num_moves, device, models, data_types, data_size):
 
     batch_size = 64
@@ -274,34 +327,36 @@ def compare_correct(num_moves, device, models, data_types, data_size):
             test_loader = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
         predl, true = prediction(data_types[i], model, device, test_loader)
         predls.append(predl)
-        
     record1 = class_correct_moves(predls, true, 1)
     total = len(true)
 
+    acc = mix_acc_split(predls, true, 1, 1, num_moves)
+    print(acc)
     count = [len(record)/total for record in record1]
 
     move_nums = [[move%num_moves for move in record] for record in record1]
-    avg_move_num = [sum(move_num)/len(move_num) for move_num in move_nums]
+    avg_move_num = [sum(move_num)/len(move_num) if len(move_num) else 0 for move_num in move_nums ]
     
     avg_liberty = [0]*len(record1)
     for i, record in tqdm(enumerate(record1), total=len(record1)):
         for move in record:
             avg_liberty[i] += check_liberty(testDataP.x, testDataP.y, move, num_moves)
-    avg_liberty = [liberty/len(record1[i]) for i, liberty in enumerate(avg_liberty)]
-    
+    avg_liberty = [liberty/len(record1[i]) if len(record1[i]) else 0 for i, liberty in enumerate(avg_liberty)]
     avg_distance = [[check_distance(true, move) for move in record] for record in record1]
     avg_distance = [[distance for distance in distances if not distance is None] for distances in avg_distance]
-    avg_distance = [sum(distance)/len(distance) for distance in avg_distance]
+    avg_distance = [sum(distance)/len(distance) if len(distance) else 0 for distance in avg_distance]
     
-    return record1, count, avg_move_num, avg_liberty, avg_distance
+    return record1, acc, count, avg_move_num, avg_liberty, avg_distance
+
+    
 
 def score_more(num_moves, model_size, device, score_type):
     
     data_types = ['Picture', 'Picture', 'Picture']
-    model_names = ["ResNet", "ViT", "ST"]
-    states = ['models_80/ResNet1_30000.pt',
-              'models_80/ViT1_30000.pt',
-              'models_80/ST1_30000.pt']
+    model_names = ["ST", "ST", "ST"] #abc
+    states = ['models_160/ST1_15000.pt',
+              'models_160/ST1_5000.pt',
+              'models_80/ST1_15000.pt']
     
     models = []
     for i in range(len(model_names)):
@@ -316,16 +371,19 @@ def score_more(num_moves, model_size, device, score_type):
         print(f'moves_score:{moves_score}/{full_score*num_moves}')
         print(f'error:{errors}')
     elif score_type == "correct_compare":
-        data_size = 3000
-        records, count, avg_move_num, avg_liberty, avg_distance = compare_correct(
+        data_size = 35000
+        records, acc, count, avg_move_num, avg_liberty, avg_distance = compare_correct(
             num_moves, device, models, data_types, data_size)
+        print(acc)
         print(count)
         print(avg_move_num)
         print(avg_liberty)
         print(avg_distance)
+        #print(records)
 
+ 
 if __name__ == "__main__":
-    num_moves = 80
+    num_moves = 160
     model_size = "mid"
     device = "cuda:1"
     score_type = "correct_compare"
