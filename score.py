@@ -8,6 +8,9 @@ import random
 from use import next_moves
 from myModels import get_model
 from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
+from dataAnalyze import plot_board
+
+
 
 
 def score_legal_self(data_type, num_moves, model):
@@ -142,6 +145,19 @@ def myaccn_split(pred, true, n, split, num_move):
         correct[i] /= (total/split)
     return correct 
 
+def correct_pos(pred, true):
+    correct = [0]*361
+    total = [0]*361
+    for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
+        sorted_indices = (-p).argsort()
+        total[sorted_indices[0]] += 1
+        if true[i] == sorted_indices[0]:
+            correct[sorted_indices[0]] += 1
+    for i in range(361):
+        if(total[i]):
+            correct[i] /= total[i]
+    return correct
+
 def score_acc(num_moves, data_type, model, split, data_size):
     
     batch_size = 64
@@ -157,10 +173,23 @@ def score_acc(num_moves, data_type, model, split, data_size):
     acc1 = myaccn_split(predl,true,1,split, num_moves)
     return acc10, acc5, acc1
 
+def correct_position(num_moves, data_type, model, data_size):
+    
+    batch_size = 64
+    path = 'datas/data_240119.csv'
+    data_source = "pros" 
+    split_rate = 0.1
+    _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
+                                ,be_top_left=False, train=False)
+    test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
+    predl, true = prediction(data_type, model, device, test_loader)
+    pos = correct_pos(predl, true)
+    return pos, myaccn_split(predl,true,1,1,num_moves)
+
 def score_self(num_moves, model_size, device, score_type):
     data_type = "Picture"
-    model_name = "Mix"
-    state = torch.load('models_160/Mix2_1600.pt')
+    model_name = "ResNet"
+    state = torch.load('models_160/ResNet1_15000.pt')
     model = get_model(model_name, model_size).to(device)
     model.load_state_dict(state)
 
@@ -181,6 +210,12 @@ def score_self(num_moves, model_size, device, score_type):
         acc10, acc5, acc1 = score_acc(num_moves, data_type, model, split, data_size)
         print(acc10)
         print(acc5)
+        print(acc1)
+    elif score_type == "correct_pos":
+        data_size = 35000
+        pos, acc1 = correct_position(num_moves, data_type, model, data_size)
+        plot_board(pos)
+        print(pos)
         print(acc1)
 
 def score_legal_more(data_types, num_moves, models):
@@ -353,10 +388,10 @@ def compare_correct(num_moves, device, models, data_types, data_size):
 def score_more(num_moves, model_size, device, score_type):
     
     data_types = ['Picture', 'Picture', 'Picture']
-    model_names = ["ST", "ST", "ST"] #abc
-    states = ['models_160/ST1_15000.pt',
-              'models_160/ST1_5000.pt',
-              'models_80/ST1_15000.pt']
+    model_names = ["ResNet", "ResNet", "ResNet"] #abc
+    states = ['models_240/ResNet1_1600.pt',
+              'models_240/ResNet11_1600.pt',
+              'models_240/ResNet111_1600.pt']
     
     models = []
     for i in range(len(model_names)):
@@ -386,9 +421,9 @@ if __name__ == "__main__":
     num_moves = 160
     model_size = "mid"
     device = "cuda:1"
-    score_type = "correct_compare"
+    score_type = "correct_pos"
 
-    #score_self(num_moves, model_size, device, score_type)
-    score_more(num_moves, model_size, device, score_type)
+    score_self(num_moves, model_size, device, score_type)
+    #score_more(num_moves, model_size, device, score_type)
    
     
