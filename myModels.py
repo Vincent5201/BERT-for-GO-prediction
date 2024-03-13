@@ -1,4 +1,4 @@
-from transformers import BertModel, BertConfig, BertForPreTraining, BertForSequenceClassification
+from transformers import BertModel, BertConfig, BertForPreTraining
 import torch.nn as nn
 import torch
 import yaml
