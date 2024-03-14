@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 import yaml
 import matplotlib.pyplot as plt
-
+import copy
 
 from myDatasets import get_datasets
 
@@ -63,7 +63,16 @@ def find_atari(games, trues):
     plot_board(pos)
     return
 
-
+def rotate_matrix_90(matrix):
+    n = 19
+    rotated_matrix = [0] * n * n
+    for i in range(n):
+        for j in range(n):
+            rotated_i = j
+            rotated_j = n - 1 - i
+            rotated_matrix[rotated_i * n + rotated_j] = matrix[i * n + j]
+    
+    return rotated_matrix
 
 if __name__ == "__main__":
     
@@ -82,6 +91,31 @@ if __name__ == "__main__":
     mat1 = args["pos_recall"]["model_160"]["ResNet"]
     mat2 = args["pos_recall"]["model_160"]["ST"]
     mat3 = args["pos_recall"]["model_160"]["ViT"]
+
+    tmp = copy.deepcopy(mat1)
+    for _ in range(3):
+        tmp = rotate_matrix_90(tmp)
+        for i in range(361):
+            mat1[i] += tmp[i]
+    for i in range(361):
+        mat1[i] /= 4
+    
+    tmp = copy.deepcopy(mat2)
+    for _ in range(3):
+        tmp = rotate_matrix_90(tmp)
+        for i in range(361):
+            mat2[i] += tmp[i]
+    for i in range(361):
+        mat2[i] /= 4
+    
+    tmp = copy.deepcopy(mat3)
+    for _ in range(3):
+        tmp = rotate_matrix_90(tmp)
+        for i in range(361):
+            mat3[i] += tmp[i]
+    for i in range(361):
+        mat3[i] /= 4
+    
 
     mat12 = [mat1[i]-mat2[i] for i in range(361)]
     mat13 = [mat1[i]-mat3[i] for i in range(361)]
