@@ -5,6 +5,8 @@ from tqdm import tqdm
 import copy
 import math
 import random
+import yaml
+
 from use import next_moves
 from myModels import get_model
 from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
@@ -188,14 +190,14 @@ def correct_position(num_moves, data_type, model, data_size):
 
 def score_self(num_moves, model_size, device, score_type):
     data_type = "Picture"
-    model_name = "ResNet"
-    state = torch.load('models_160/ResNet1_15000.pt')
+    model_name = "ST"
+    state = torch.load(f'models_{num_moves}/ST1_10000.pt')
     model = get_model(model_name, model_size).to(device)
     model.load_state_dict(state)
 
     if score_type == "score":
         score, moves_score, full_score, records = score_legal_self(data_type, num_moves, model)
-        print(records)
+        #print(records)
         print(f'score:{score}/{full_score}')
         print(f'moves_score:{moves_score/full_score}/{num_moves}')
     elif score_type == "feature":
@@ -205,14 +207,15 @@ def score_self(num_moves, model_size, device, score_type):
         print(f'atari:{atari}')
         print(f'liberty:{liberty}')
     elif score_type == "score_acc":
-        split = 16
+        split = 24
         data_size = 35000
         acc10, acc5, acc1 = score_acc(num_moves, data_type, model, split, data_size)
         print(acc10)
         print(acc5)
         print(acc1)
     elif score_type == "correct_pos":
-        data_size = 35000
+        # use eval data
+        data_size = 30000
         pos, acc1 = correct_position(num_moves, data_type, model, data_size)
         plot_board(pos)
         print(pos)
@@ -289,55 +292,80 @@ def check_distance(trues, tgt):
         return math.sqrt(math.pow(x-xl,2)+math.pow(y-yl,2))
     return None
 
-def mix_acc_split(predls, true, n, split, num_move, smart=True):
+def mix_acc_split(predls, true, n, split, num_move, smart=None):
     total = len(true)
     correct = [0]*split
+    with open('analyzation.yaml', 'r') as file:
+        args = yaml.safe_load(file)
+    mat1 = args["pos_recall"][f"model_{num_move}"]["ResNet"]
+    mat2 = args["pos_recall"][f"model_{num_move}"]["ViT"]
+    mat3 = args["pos_recall"][f"model_{num_move}"]["ST"]
     
     for i in tqdm(range(total), total=total, leave=False):
         sorted_indices = []
         sorted_p = []
-        for j, predl in enumerate(predls):
+        for _, predl in enumerate(predls):
             sorted_indices.append((-predl[i]).argsort()[:min(3*n,10)]) 
             sorted_p.append(np.sort(predl[i])[::-1][:min(3*n,10)])
-        sorted_indices = np.array(sorted_indices)
-        sorted_p = np.array(sorted_p)
-        sorted_indices = sorted_indices.reshape(sorted_indices.shape[0]*sorted_indices.shape[1])
-        sorted_p = sorted_p.reshape(sorted_p.shape[0]*sorted_p.shape[1])
-        vote = {}
-        if smart:
-            #acc:49.2 for models_160
-            for j, idx in enumerate(sorted_indices):
-                for k in range(j+1, len(sorted_indices)):
-                    if idx == sorted_indices[k]:
-                        sorted_p[j] += sorted_p[k]
-            sorted_idx = np.argsort(sorted_p)[::-1]
-            choices = sorted_indices[sorted_idx][:n]
-            """
-            #acc:48.2 for models_160
-            for idx in sorted_indices:
-                if idx in vote.keys():
-                    vote[idx] += 1
-                else:
-                    vote[idx] = 1
-            sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
-            max_vote = 0
-            choices = []
-            for item in sorted_vote.items():
-                if max_vote:
-                    if item[1] == max_vote:
-                        choices.append(item[0])
+        
+        choices = []
+        smart = "vote+move_regionc"
+
+        if smart == "prob_vote":
+            vote = {}
+            for p, indices in enumerate(sorted_indices):
+                for q, indice in enumerate(indices):
+                    if indice in vote.keys():
+                        vote[indice] += sorted_p[p][q]
                     else:
-                        break
+                        vote[indice] = sorted_p[p][q]
+            sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
+            choices = list(sorted_vote.keys())
+        elif smart == "prec":
+            tops = [mat1[sorted_indices[0][0]], mat2[sorted_indices[1][0]], mat3[sorted_indices[2][0]]]
+            if tops[0] > tops[1]:
+                if tops[0] > tops[2]:
+                    choices.append(sorted_indices[0][0])
                 else:
-                    choices.append(item[0])
-                    max_vote = item[1]
-           # random.shuffle(choices)
-            choices = choices[:n]
+                    choices.append(sorted_indices[2][0])
+            else:
+                if tops[1] > tops[2]:
+                    choices.append(sorted_indices[1][0])
+                else:
+                    choices.append(sorted_indices[2][0])
+        elif smart == "vote":
+            vote = {}
+            for p, indices in enumerate(sorted_indices):
+                for q, indice in enumerate(indices):
+                    if indice in vote.keys():
+                        vote[indice] += (1-q/10)
+                    else:
+                        vote[indice] = 1-q/10
+            sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
+            choices = list(sorted_vote.keys())
+        elif smart == "vote+move_region":
+            top_choices = [sorted_indices[p][0] for p in range(len(sorted_indices))]
+            if len(top_choices) == len(set(top_choices)):
+                if i%num_move < 40:
+                    choices.append(sorted_indices[2][0])
+                elif i%num_move > 190:
+                    choices.append(sorted_indices[1][0])
+                else:
+                    choices.append(sorted_indices[0][0])
+            else:
+                vote = {}
+                for p, indices in enumerate(sorted_indices):
+                    for q, indice in enumerate(indices):
+                        if indice in vote.keys():
+                            vote[indice] += sorted_p[p][q]
+                        else:
+                            vote[indice] = sorted_p[p][q]
+                sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
+                choices = list(sorted_vote.keys())
         else:
-            sorted_idx = np.argsort(sorted_p)[::-1]
-            choices = sorted_indices[sorted_idx][:n]
-        """
-        if true[i] in choices:
+            choices = [s[0] for s in sorted_indices]
+            random.shuffle(choices)
+        if true[i] in choices[:n]:
             correct[int((i%num_move)/int(num_move/split))] += 1
     for i in range(split):
         correct[i] /= (total/split)
@@ -388,10 +416,10 @@ def compare_correct(num_moves, device, models, data_types, data_size):
 def score_more(num_moves, model_size, device, score_type):
     
     data_types = ['Picture', 'Picture', 'Picture']
-    model_names = ["ResNet", "ResNet", "ResNet"] #abc
-    states = ['models_240/ResNet1_1600.pt',
-              'models_240/ResNet11_1600.pt',
-              'models_240/ResNet111_1600.pt']
+    model_names = ["ResNet", "ViT", "ST"] #abc
+    states = [f'models_{num_moves}/ResNet1_10000.pt',
+              f'models_{num_moves}/ViT1_10000.pt',
+              f'models_{num_moves}/ST1_10000.pt']
     
     models = []
     for i in range(len(model_names)):
@@ -418,12 +446,11 @@ def score_more(num_moves, model_size, device, score_type):
 
  
 if __name__ == "__main__":
-    num_moves = 160
+    num_moves = 240
     model_size = "mid"
-    device = "cuda:1"
-    score_type = "correct_pos"
-
-    score_self(num_moves, model_size, device, score_type)
-    #score_more(num_moves, model_size, device, score_type)
+    device = "cuda:0"
+    score_type = "correct_compare"
+    #score_self(num_moves, model_size, device, score_type)
+    score_more(num_moves, model_size, device, score_type)
    
     

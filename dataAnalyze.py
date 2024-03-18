@@ -88,9 +88,9 @@ if __name__ == "__main__":
     #find_atari(testData.x, testData.y)
     with open('D:/codes/python/.vscode/Transformer_Go/analyzation.yaml', 'r') as file:
         args = yaml.safe_load(file)
-    mat1 = args["pos_recall"]["model_160"]["ResNet"]
-    mat2 = args["pos_recall"]["model_160"]["ST"]
-    mat3 = args["pos_recall"]["model_160"]["ViT"]
+    mat1 = args["pos_recall"]["model_240"]["ResNet"]
+    mat2 = args["pos_recall"]["model_240"]["ST"]
+    mat3 = args["pos_recall"]["model_240"]["ViT"]
 
     tmp = copy.deepcopy(mat1)
     for _ in range(3):
