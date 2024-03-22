@@ -99,15 +99,15 @@ def score_feature(data_type, num_moves, model, bounds):
 
 
 def myaccn_split(pred, true, n, split, num_move):
-    total = len(true)
     correct = [0]*split
     for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
         sorted_indices = (-p).argsort()
         top_k_indices = sorted_indices[:n]  
         if true[i] in top_k_indices:
             correct[int((i%num_move)/int(num_move/split))] += 1
+    part_total = len(true)/split
     for i in range(split):
-        correct[i] /= (total/split)
+        correct[i] /= part_total
     return correct 
 
 def correct_pos(pred, true):
@@ -123,74 +123,75 @@ def correct_pos(pred, true):
             correct[i] /= total[i]
     return correct
 
-def score_acc(num_moves, data_type, model, split, data_size, device):
-    
+def score_acc(data_config, model, split, device):
     batch_size = 64
-    path = 'datas/data_240119.csv'
-    data_source = "pros" 
-    split_rate = 0.1
-    _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
-                                ,be_top_left=False, train=False)
+    _, testData = get_datasets(data_config, train=False)
     test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
-    predl, true = prediction(data_type, model, device, test_loader)
-    acc10 = myaccn_split(predl,true,10,split, num_moves)
-    acc5 = myaccn_split(predl,true,5,split, num_moves)
-    acc1 = myaccn_split(predl,true,1,split, num_moves)
+    predl, true = prediction(data_config["data_type"], model, device, test_loader)
+    acc10 = myaccn_split(predl, true, 10, split, data_config["num_moves"])
+    acc5 = myaccn_split(predl, true, 5, split, data_config["num_moves"])
+    acc1 = myaccn_split(predl, true, 1, split, data_config["num_moves"])
     return acc10, acc5, acc1
 
-def correct_position(num_moves, data_type, model, data_size, device):
-    
+def correct_position(data_config, model, device):
     batch_size = 64
-    path = 'datas/data_240119.csv'
-    data_source = "pros" 
-    split_rate = 0.1
-    _, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate
-                                ,be_top_left=False, train=False)
+    _, testData = get_datasets(data_config, train=False)
     test_loader = DataLoader(testData, batch_size=batch_size, shuffle=False)
-    predl, true = prediction(data_type, model, device, test_loader)
+    predl, true = prediction(data_config["data_type"], model, device, test_loader)
     pos = correct_pos(predl, true)
-    return pos, myaccn_split(predl,true,1,1,num_moves)
+    return pos, myaccn_split(predl, true, 1, 1, data_config["num_moves"])
 
-def score_self(num_moves, model, score_type, device):
+def score_self(data_config, model, score_type, device):
     
     if score_type == "score":
-        score, moves_score, full_score, records = score_legal(data_type, num_moves, model, device)
+        score, moves_score, full_score, records = score_legal(
+            data_config["data_type"], data_config["num_moves"], model, device)
         #print(records)
         print(f'score:{score}/{full_score}')
-        print(f'moves_score:{moves_score/full_score}/{num_moves}')
+        print(f'moves_score:{moves_score/full_score}/{data_config["num_moves"]}')
     elif score_type == "feature":
         bounds = [1.5, 2.9, 4.3, 5.7, 7.1, 8.5]
-        near, atari, liberty = score_feature(data_type, num_moves, model, bounds)
+        near, atari, liberty = score_feature(
+            data_config["data_type"], data_config["num_moves"], model, bounds)
         print(f'near:{near}')
         print(f'atari:{atari}')
         print(f'liberty:{liberty}')
     elif score_type == "score_acc":
+        #use test data
         split = 16
-        data_size = 35000
-        acc10, acc5, acc1 = score_acc(num_moves, data_type, model, split, data_size, device)
+        acc10, acc5, acc1 = score_acc(data_config, model, split, device)
         print(acc10)
         print(acc5)
         print(acc1)
     elif score_type == "correct_pos":
-        # use eval data
-        data_size = 30000
-        pos, acc1 = correct_position(num_moves, data_type, model, data_size, device)
+        #use eval data
+        pos, acc1 = correct_position(data_config, model, device)
         plot_board(pos)
         print(pos)
         print(acc1)
 
  
 if __name__ == "__main__":
-    num_moves = 160
-    model_size = "mid"
+    data_config = {}
+    data_config["path"] = 'datas/data_240119.csv'
+    data_config["data_size"] = 15000
+    data_config["offset"] = 15000
+    data_config["data_type"] = "Word"
+    data_config["data_source"] = "pros"
+    data_config["num_moves"] = 160
+
+    model_config = {}
+    model_config["model_name"] = "BERTxpretrained"
+    model_config["model_size"] = "mid"
+
+  
     device = "cuda:0"
-    data_type = "Word"
-    model_name = "BERTp"
-    state = torch.load(f'models_{num_moves}/BERT11_15000_15000.pt')
-    model = get_model(model_name, model_size).to(device)
+   
+    state = torch.load(f'models_{data_config["num_moves"]}/BERT11_15000_15000.pt')
+    model = get_model(model_config).to(device)
     model.load_state_dict(state)
     score_type = "score"
-    score_self(num_moves, model, score_type, device)
+    score_self(data_config, model, score_type, device)
     
    
     

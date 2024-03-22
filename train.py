@@ -44,28 +44,29 @@ class CustomCrossEntropyLoss(nn.Module):
         custom_loss = nn.functional.nll_loss(log_probs, target, reduction='none') * reward_weights[:, target]
         return custom_loss.mean()
 
+data_config = {}
+data_config["path"] = 'datas/data_240119.csv'
+data_config["data_size"] = 15000
+data_config["offset"] = 15000
+data_config["data_type"] = "Word"
+data_config["data_source"] = "pros"
+data_config["num_moves"] = 160
+
+model_config = {}
+model_config["model_name"] = "BERTxpretrained"
+model_config["model_size"] = "mid"
+model_config["config_path"] = "models_160/p1/config.json"
+model_config["state_path"] = "models_160/p1/model.safetensors"
+
 batch_size = 64
 num_epochs = 50
-max_len = 80
-lr = 5e-4
-data_size = 11000
-path = 'datas/data_240119.csv'
-data_type = "Word" 
-data_source = "pros" 
-num_moves = 80 
-split_rate = 0.1
-be_top_left = False
-model_name = "BERT"
-model_size = "mid"
+lr = 5e-5
 device = "cuda:1"
 save = True
 
-config_path = 'models_80/p1/config.json'
-state_path = 'models_80/p1/model.safetensors'
-model = get_model(model_name, model_size, state_path, config_path)
+model = get_model(model_config).to(device)
 
-trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-model = model.to(device)
+trainData, testData = get_datasets(data_config)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 loss_fct = nn.CrossEntropyLoss()
 #loss_fct = CustomCrossEntropyLoss()
@@ -79,13 +80,13 @@ for epoch in range(num_epochs):
     losses = []
     for datas in tqdm(train_loader, leave=False):
         optimizer.zero_grad()
-        if data_type == "Word":
+        if data_config["data_type"] == "Word" or "posTest":
             x, m, y = datas
             x = x.to(device)
             m = m.to(device)
             y = y.to(device)
             pred = model(x, m)
-        elif data_type == "Picture":
+        elif data_config["data_type"] == "Picture":
             x, y = datas
             x = x.to(device)
             y = y.to(device)
@@ -102,13 +103,13 @@ for epoch in range(num_epochs):
     true = []
     with torch.no_grad():
         for datas in tqdm(test_loader, leave=False):
-            if data_type == "Word":
+            if data_config["data_type"] == "Word":
                 x, m, y = datas
                 x = x.to(device)
                 m = m.to(device)
                 y = y.to(device)
                 pred = model(x, m)
-            elif data_type == "Picture":
+            elif data_config["data_type"] == "Picture":
                 x, y = datas
                 x = x.to(device)
                 y = y.to(device)
@@ -123,7 +124,6 @@ for epoch in range(num_epochs):
 
     true = torch.tensor(true).cpu().numpy()
     preds = torch.tensor(preds).cpu().numpy()
-    print(f'accuracy30:{myaccn(predl,true,30)}')
     print(f'accuracy10:{myaccn(predl,true,10)}')
     print(f'accuracy5:{myaccn(predl,true, 5)}')
     print(f'accuracy:{accuracy_score(preds,true)}')

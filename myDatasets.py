@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import copy
+import random
 import torch
 from tqdm import tqdm
 from torch.utils.data import Dataset
@@ -116,7 +117,7 @@ def transfer_back(step):
 
 def stepbystep(game):
     num_moves = len(game)
-    rgames = [[game[j] if j <= i else 0 for j in range(num_moves)] for i in range(num_moves)]
+    rgames = [[game[j]+1 if j <= i else 0 for j in range(num_moves)] for i in range(num_moves)]
     return rgames
 
 def get_tensor_memory_size(tensor):
@@ -363,11 +364,43 @@ class PicturesDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
+class posDataset(Dataset):
+    # data loading
+    def __init__(self, picks, train):
+        x = []
+        y = []
+        for i in range(0,19):
+            if train:
+                if not i in picks:
+                    for j in range(1,19):
+                        x.append([363, i*19+j+1, 362])
+                        y.append(i*19+j)
+            else:
+                if i in picks:
+                    for j in range(1,19):
+                        x.append([363, i*19+j+1, 362])
+                        y.append(i*19+j)
+        
+        self.x = torch.tensor(x)
+        self.y = torch.tensor(y)
+        self.mask = torch.ones(self.x.shape)
+        self.n_samples = len(self.y)
+    def __getitem__(self, index):  
+        return self.x[index], self.mask[index], self.y[index]
 
+    def __len__(self):
+        return self.n_samples
+
+
+def sort_alternate(array):
+    result = np.empty(len(array), dtype=array.dtype)
+    result[::2] = np.sort(array[::2])
+    result[1::2] = np.sort(array[1::2])
+    return result
 
 class WordsDataset(Dataset):
     # data loading
-    def __init__(self, games, num_moves, train=True):
+    def __init__(self, games, num_moves, train=True, sort=False):
         gamesall = []
         for game in tqdm(games, total = len(games), leave=False):
             result = stepbystep(game)
@@ -384,18 +417,22 @@ class WordsDataset(Dataset):
         for i in tqdm(range(total_steps), total=total_steps, leave=False):
             last = 0
             while(last < num_moves and gamesall[i][last]):
-                gamesall[i][last] += 1
                 last += 1
             last -= 1
             y[i] = gamesall[i][last]-1
             gamesall[i][last] = 362
+            if sort:
+                gamesall[i][:last] = sort_alternate(gamesall[i][:last])
         print("data finish")
+        if train and sort:
+            gamesall = np.unique(gamesall, axis=0)
+            print("unique finish")
         gamesall = np.insert(gamesall, 0, 363, axis=1)
 
         self.x = torch.tensor(gamesall).long()
         self.y = (torch.tensor(y)).long()
         self.mask = (self.x != 0).detach().long()
-        self.n_samples = total_steps
+        self.n_samples = len(self.y)
         
     def __getitem__(self, index):  
         return self.x[index], self.mask[index], self.y[index]
@@ -472,37 +509,48 @@ class BERTPretrainDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=True, offset=0):
-    df = pd.read_csv(path, encoding="ISO-8859-1", on_bad_lines='skip')
-    df = df.sample(frac=1,replace=False,random_state=17).reset_index(drop=True).to_numpy()[offset:offset+data_size]
-    before_chcek = len(df)
-    games = [game for game in df if check(game, data_source, num_moves)]
-    after_check = len(games)
-    print(f'check_rate:{after_check/before_chcek}')
-    print(f'has {after_check} games')
-    games = np.array(games)
-    if data_source == "foxwq":
-        games = np.delete(games, 0, axis=1)
-    games = [[transfer(step) for step in game[:num_moves]] for game in games]
+def get_datasets(data_config, split_rate=0.1, be_top_left=False, train=True):
+    if data_config["data_type"] == "posTest":
+        pick1 = random.randint(0,18)
+        pick2 = random.randint(0,18)
+        while pick2 == pick1:
+            pick2 = random.randint(0,18)
+        train_dataset = posDataset(set([pick1, pick2]), True)
+        eval_dataset = posDataset(set([pick1, pick2]), False)
+        return train_dataset, eval_dataset
+    
+    df = pd.read_csv(data_config["path"], encoding="ISO-8859-1", on_bad_lines='skip')
+    df = df.sample(frac=1,replace=False,random_state=17).reset_index(drop=True)\
+
+    games = [game for game in df if check(game, data_config["data_source"], data_config["num_moves"])]
+    print(f'check_rate:{len(games)/len(df)}')
+    print(f'has {len(games)} games')
+
+    if data_config["data_source"] == "foxwq":
+        games = np.delete(np.array(games), 0, axis=1)
+
+    games = [[transfer(step) for step in game[:data_config["num_moves"]]] for game in games]
     print("transfer finish")
    
     if be_top_left:
         games = top_left(games)
-    split = int(after_check * split_rate)
+
+    split = int(len(games) * split_rate)
     train_dataset = None
     eval_dataset = None
-    if data_type == 'Word':
+    if data_config["data_type"] == 'Word':
         if train:
-            train_dataset = WordsDataset(games[split:],  num_moves)
-        eval_dataset = WordsDataset(games[:split],  num_moves, train=train)
-    elif data_type == 'Picture':
+            train_dataset = WordsDataset(games[split:],  data_config["num_moves"])
+        eval_dataset = WordsDataset(games[:split],  data_config["num_moves"], train=train)
+    elif data_config["data_type"] == 'Picture':
         if train:
-            train_dataset = PicturesDataset(games[split:], num_moves)
-        eval_dataset = PicturesDataset(games[:split], num_moves)
-    elif data_type == "Pretrain":
+            train_dataset = PicturesDataset(games[split:], data_config["num_moves"])
+        eval_dataset = PicturesDataset(games[:split], data_config["num_moves"])
+    elif data_config["data_type"] == "Pretrain":
         games = extend(games)
-        train_dataset = BERTPretrainDataset(games, num_moves)
+        train_dataset = BERTPretrainDataset(games, data_config["num_moves"])
         eval_dataset = None
+    
     if not train_dataset is None:
         print(f'trainData shape:{train_dataset.x.shape}')
         print(f'trainData memory size:{get_tensor_memory_size(train_dataset.x)}')
@@ -513,16 +561,8 @@ def get_datasets(path, data_type, data_source, data_size, num_moves, split_rate,
 
 
 if __name__ == "__main__":
-    path = 'datas/data_Foxwq_9d.csv'
-
-    data_source = "foxwq"
-    data_type = 'Pretrain'
-    num_moves = 80
-    data_size = 300
-    split_rate = 0.1
-    be_top_left = False
-    trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=False)
-    print(trainData.x[11103])
-    print(trainData.x[31031])
+    
+    
+    pass
 
 

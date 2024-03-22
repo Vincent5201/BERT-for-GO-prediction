@@ -23,7 +23,6 @@ class Bert_Go(nn.Module):
         logits = self.linear2(logits)
         return logits
     
-    
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernal_size):
         super(ConvBlock, self).__init__()
@@ -95,17 +94,19 @@ class myViT(nn.Module):
         return y
 
 
-class Mix(nn.Module):
-    def __init__(self, models):
-        super(Mix, self).__init__()
-        self.models = models
-        self.output = nn.Linear(361*len(models),361)
+
+class Mix3(nn.Module):
+    def __init__(self, model1, model2, model3):
+        super(Mix3, self).__init__()
+        self.model1 = model1
+        self.model2 = model2
+        self.model3 = model3
+        self.output1 = nn.Linear(1083,1024)
+        self.output2 = nn.Linear(1024,361)
     def forward(self, x):
-        y = []
-        for model in self.models:
-            y.append(model(x))
-        y = torch.cat(y,dim = -1)
-        y = self.output(y)
+        y = torch.cat([self.model1(x),self.model2(x),self.model3(x)],dim = -1)
+        y = self.output1(y)
+        y = self.output2(y)
         return y
     
 class myST(nn.Module):
@@ -133,13 +134,13 @@ class myST(nn.Module):
         return y
 
 
-def get_model(name, level, state_path = None, config_path = None):
+def get_model(model_config):
     with open('modelArgs.yaml', 'r') as file:
         args = yaml.safe_load(file)
-    if not ("x" in name):
-        args = args[name][level]
+    if not ("x" in model_config["model_name"]):
+        args = args[model_config["model_name"]][model_config["model_size"]]
 
-    if name == 'BERT':
+    if model_config["model_name"] == 'BERT':
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]
         config.num_hidden_layers = args["num_hidden_layers"]
@@ -148,7 +149,7 @@ def get_model(name, level, state_path = None, config_path = None):
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
         model = Bert_Go(config, 361)
-    elif name == "BERTp":
+    elif model_config["model_name"] == "BERTp":
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]
         config.num_hidden_layers = args["num_hidden_layers"]
@@ -157,9 +158,9 @@ def get_model(name, level, state_path = None, config_path = None):
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
         model = Bert_Go(config, 361)
-    elif name == "BERTxpretrained":
+    elif model_config["model_name"] == "BERTxpretrained":
         tensors = {}
-        with safe_open(state_path, framework="pt") as f:
+        with safe_open(model_config["state_path"], framework="pt") as f:
             for k in f.keys():
                 split_k = k.split('.')
                 if split_k[0] == 'bert':
@@ -171,12 +172,12 @@ def get_model(name, level, state_path = None, config_path = None):
                             "cls.predictions.transform.dense.bias", "cls.predictions.transform.dense.weight", "cls.seq_relationship.bias", "cls.seq_relationship.weight"]
         for key in keys_to_delete:
             del tensors[key]
-        config = BertConfig.from_json_file(config_path)
+        config = BertConfig.from_json_file(model_config["cnofig_path"])
         pretrained_model = BertModel(config)
         pretrained_model.load_state_dict(tensors)
         model = Bert_Go(config, 361, pretrained_model)
-    elif name == 'pretrainxBERT':
-        args = args['BERT'][level]
+    elif model_config["model_name"] == 'pretrainxBERT':
+        args = args[model_config["model_name"]][model_config["model_size"]]
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]
         config.num_hidden_layers = args["num_hidden_layers"]
@@ -185,13 +186,12 @@ def get_model(name, level, state_path = None, config_path = None):
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
         model = BertForPreTraining(config)
-
-    elif name == 'ResNet':
+    elif model_config["model_name"] == 'ResNet':
         res_channel = args["res_channel"]
         layers = args["layers"]
         in_channel = 16
         model = myResNet(in_channel, res_channel, layers)
-    elif name == 'ViT':
+    elif model_config["model_name"] == 'ViT':
         config = ViTConfig()
         cnn_channel = args["cnn_channel"]
         config.num_channels = args["vit_channels"]
@@ -208,7 +208,7 @@ def get_model(name, level, state_path = None, config_path = None):
         config.attention_probs_dropout_prob = 0.1
         kernal_size = 3
         model = myViT(config, in_channel, cnn_channel, kernal_size)
-    elif name == "ST":
+    elif model_config["model_name"] == "ST":
         config = Swinv2Config()
         config.num_layers = args["num_layers"]
         config.num_heads = args["num_heads"]
@@ -222,14 +222,14 @@ def get_model(name, level, state_path = None, config_path = None):
         config.embed_dim = 64
         config.encoder_stride = 1
         model = myST(config, in_channel, config.num_channels, kernal_size)
-    elif name == 'Mix':
-        model1 = get_model("ST", level)
-        model2 = get_model("ViT", level)
-        model3 = get_model("ResNet", level)
-        model = Mix([model1, model2, model3])
+    elif model_config["model_name"] == 'Mix':
+        model1 = get_model("ST", model_config["model_size"])
+        model2 = get_model("ViT", model_config["model_size"])
+        model3 = get_model("ResNet", model_config["model_size"])
+        model = Mix3(model1, model2, model3)
     return model
 
 if __name__ == "__main__":
-    model = get_model("GPT", "other")
+    model = get_model("Mix", "small","cuda:1")
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total Parameters: {total_params}")

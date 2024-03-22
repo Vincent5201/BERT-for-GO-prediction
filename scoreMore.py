@@ -158,132 +158,150 @@ def prob_vote(sorted_indices, sorted_p):
     choices = list(sorted_vote.keys())
     return choices
 
-def mix_acc(n, num_moves, data_size, smart=None):
+def vote(sorted_indices):
+    vote = {}
+    for p, indices in enumerate(sorted_indices):
+        for q, indice in enumerate(indices):
+            if indice in vote.keys():
+                vote[indice] += (1-q*q/10)
+            else:
+                vote[indice] = (1-q*q/10)
+    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
+    choices = list(sorted_vote.keys())
+    return choices
+
+def get_data_pred(data_config, models, data_types, device):
     batch_size = 64
-    path = 'datas/data_240119.csv'
-    data_source = "pros" 
-    split_rate = 0.1
     predls = []
-    _, testDataW = get_datasets(path, "Word", data_source, data_size, num_moves, split_rate
-                                , False, train=False)
-    _, testDataP = get_datasets(path, "Picture", data_source, data_size, num_moves, split_rate
-                                , False, train=False)
+    data_config["data_type"] = "Word"
+    _, testDataW = get_datasets(data_config, train=False)
+    test_loaderW = DataLoader(testDataW, batch_size=batch_size, shuffle=False)
+    trues = testDataW.y
+
+    data_config["data_type"] = "Picture"
+    _, testDataP = get_datasets(data_config, train=False)
+    test_loaderP = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
+
     for i, model in enumerate(models):
         if data_types[i] == "Word":
-            test_loader = DataLoader(testDataW, batch_size=batch_size, shuffle=False)
+            predl, _ = prediction(data_types[i], model, device, test_loaderW)
         else:
-            test_loader = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
-        predl, true = prediction(data_types[i], model, device, test_loader)
+            predl, _ = prediction(data_types[i], model, device, test_loaderP)
         predls.append(predl)
-    true = testDataP.y
-    total = len(true)
-    correct = 0
+    
+    return testDataP, testDataW, predls, trues
+
+def mix_acc(n, data_config, device, models, data_types, smart=None):
+    
+    _, _, predls, trues = get_data_pred(data_config, models, data_types, device)
+   
     with open('analyzation.yaml', 'r') as file:
         args = yaml.safe_load(file)
-    precs = [args["pos_recall"][f"model_{num_moves}"]["ResNet"],
-             args["pos_recall"][f"model_{num_moves}"]["ViT"],
-             args["pos_recall"][f"model_{num_moves}"]["ST"]]
-
+    precs = [args["pos_recall"][f"model_{data_config["num_moves"]}"]["ResNet"],
+             args["pos_recall"][f"model_{data_config["num_moves"]}"]["ViT"],
+             args["pos_recall"][f"model_{data_config["num_moves"]}"]["ST"]]
+    
+    total = len(trues)
+    correct = 0
     for i in tqdm(range(total), total=total, leave=False):
         sorted_indices = []
         sorted_p = []
         for _, predl in enumerate(predls):
-            sorted_indices.append((-predl[i]).argsort()[:10]) 
-            sorted_p.append(np.sort(predl[i])[::-1][:10])
+            sorted_indices.append((-predl[i]).argsort()[:5]) 
+            sorted_p.append(np.sort(predl[i])[::-1][:5])
         
         choices = []
-        
         if smart == "prob_vote":
             choices = prob_vote(sorted_indices, sorted_p)
         elif smart == "vote+ResNet":
             choices = vote_Res(sorted_indices)
         elif smart == "vote+prec":
             choices = vote_prec(sorted_indices, precs)
+        elif smart == "vote":
+            choices = vote(sorted_indices)
         else:
             choices = [s[0] for s in sorted_indices]
             random.shuffle(choices)
 
-        if true[i] in choices[:n]:
+        if trues[i] in choices[:n]:
             correct += 1
     return correct/total
 
-def compare_correct(num_moves, device, models, data_types, data_size):
+def compare_correct(data_config, device, models, data_types):
 
-    batch_size = 64
-    path = 'datas/data_240119.csv'
-    data_source = "pros" 
-    split_rate = 0.1
-    predls = []
-    _, testDataW = get_datasets(path, "Word", data_source, data_size, num_moves, split_rate
-                                , False, train=False)
-    _, testDataP = get_datasets(path, "Picture", data_source, data_size, num_moves, split_rate
-                                , False, train=False)
-    for i, model in enumerate(models):
-        if data_types[i] == "Word":
-            test_loader = DataLoader(testDataW, batch_size=batch_size, shuffle=False)
-        else:
-            test_loader = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
-        predl, true = prediction(data_types[i], model, device, test_loader)
-        predls.append(predl)
-    record1 = class_correct_moves(predls, true, 1)
-    total = len(true)
+    testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
+
+    record1 = class_correct_moves(predls, trues, 1)
+    total = len(trues)
 
     count = [len(record)/total for record in record1]
 
-    move_nums = [[move%num_moves for move in record] for record in record1]
+    move_nums = [[move%data_config["num_moves"] for move in record] for record in record1]
     avg_move_num = [sum(move_num)/len(move_num) if len(move_num) else 0 for move_num in move_nums ]
     
     avg_liberty = [0]*len(record1)
     for i, record in tqdm(enumerate(record1), total=len(record1)):
         for move in record:
-            avg_liberty[i] += check_liberty(testDataP.x, testDataP.y, move, num_moves)
+            avg_liberty[i] += check_liberty(testDataP.x, testDataP.y, move, data_config["num_moves"])
     avg_liberty = [liberty/len(record1[i]) if len(record1[i]) else 0 for i, liberty in enumerate(avg_liberty)]
-    avg_distance = [[check_distance(true, move) for move in record] for record in record1]
+    avg_distance = [[check_distance(trues, move) for move in record] for record in record1]
     avg_distance = [[distance for distance in distances if not distance is None] for distances in avg_distance]
     avg_distance = [sum(distance)/len(distance) if len(distance) else 0 for distance in avg_distance]
     
     return record1, count, avg_move_num, avg_liberty, avg_distance
 
 
-def score_more(num_moves, models, device, score_type):
+def score_more(data_config, models, device, score_type):
         
     if score_type == "legal":
-        score, moves_score, full_score, errors = score_legal_more(data_types, num_moves, models)
+        score, moves_score, full_score, errors = score_legal_more(
+            data_types, data_config["num_moves"], models)
         print(f'score:{score}/{full_score}')
-        print(f'moves_score:{moves_score}/{full_score*num_moves}')
+        print(f'moves_score:{moves_score}/{full_score*data_config["num_moves"]}')
         print(f'error:{errors}')
-    elif score_type == "correct_compare":
-        data_size = 350
+
+    elif score_type == "compare_correct":
         records, count, avg_move_num, avg_liberty, avg_distance = compare_correct(
-            num_moves, device, models, data_types, data_size)
+            data_config, device, models, data_types)
         print(count)
         print(avg_move_num)
         print(avg_liberty)
         print(avg_distance)
         #print(records)
+
     elif score_type == "mix_acc":
-        data_size = 350
-        acc = mix_acc(1, num_moves, data_size, None)
+        acc = mix_acc(1, data_config, device, models, data_types, "prob_vote")
         print(acc)
 
  
 if __name__ == "__main__":
-    num_moves = 240
-    model_size = "mid"
+    data_config = {}
+    data_config["path"] = 'datas/data_240119.csv'
+    data_config["data_size"] = 15000
+    data_config["offset"] = 15000
+    data_config["data_type"] = "Word"
+    data_config["data_source"] = "pros"
+    data_config["num_moves"] = 160
+
+    model_config = {}
+    model_config["model_name"] = "BERTxpretrained"
+    model_config["model_size"] = "mid"
+
     device = "cuda:0"
     score_type = "mix_acc"
+
     data_types = ['Picture', 'Picture', 'Picture']
     model_names = ["ResNet", "ViT", "ST"] #abc
-    states = [f'models_{num_moves}/ResNet1_10000.pt',
-              f'models_{num_moves}/ViT1_10000.pt',
-              f'models_{num_moves}/ST1_10000.pt']
+    states = [f'models_{data_config["num_moves"]}/ResNet1_10000.pt',
+              f'models_{data_config["num_moves"]}/ViT1_10000.pt',
+              f'models_{data_config["num_moves"]}/ST1_10000.pt']
     models = []
     for i in range(len(model_names)):
-        model = get_model(model_names[i], model_size).to(device)
+        model = get_model(model_names[i], model_config["model_size"]).to(device)
         state = torch.load(states[i])
         model.load_state_dict(state)
         models.append(model)
 
-    score_more(num_moves, models, device, score_type)
+    score_more(data_config, models, device, score_type)
    
     

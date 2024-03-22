@@ -1,33 +1,37 @@
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from myDatasets import get_datasets
 from myModels import get_model
 
-batch_size = 64
-num_epochs = 30
-max_len = 80
-lr = 5e-5
-data_size = 140000
-path = 'datas/data_Foxwq_9d.csv'
-data_type = "Pretrain" 
-data_source = "foxwq" 
-num_moves = 80 
-split_rate = 0.1
-be_top_left = False
-model_name = "BERTxpretrain"
-model_size = "mid"
-device = "cuda:0"
+data_config = {}
+data_config["path"] = 'datas/data_240119.csv'
+data_config["data_size"] = 15000
+data_config["offset"] = 15000
+data_config["data_type"] = "Pretrain"
+data_config["data_source"] = "pros"
+data_config["num_moves"] = 160
 
-trainData, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left)
-model = get_model(model_name, model_size)
+model_config = {}
+model_config["model_name"] = "pretrainxBERT"
+model_config["model_size"] = "mid"
+
+
+batch_size = 64
+num_epochs = 50
+lr = 5e-5
+device = "cuda:1"
+save = True
+
+
+trainData, testData = get_datasets(data_config)
+model = get_model(model_config)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 train_loader = DataLoader(trainData, batch_size=batch_size, shuffle=True)
-
+print("start")
 for epoch in range(num_epochs):
     model.train()
     losses = []
@@ -46,5 +50,5 @@ for epoch in range(num_epochs):
         losses.append(loss.item())
     print(f'epoch {epoch+1}/{num_epochs},  train_loss = {sum(losses)/len(losses):.4f}')
 
-    save_directory = '/home/F74106165/Transformer_Go/models_80/p1'
+    save_directory = '/home/F74106165/Transformer_Go/models_80/p3'
     model.save_pretrained(save_directory)
