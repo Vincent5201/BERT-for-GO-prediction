@@ -424,9 +424,7 @@ class WordsDataset(Dataset):
             if sort:
                 gamesall[i][:last] = sort_alternate(gamesall[i][:last])
         print("data finish")
-        if train and sort:
-            gamesall = np.unique(gamesall, axis=0)
-            print("unique finish")
+        
         gamesall = np.insert(gamesall, 0, 363, axis=1)
 
         self.x = torch.tensor(gamesall).long()
@@ -521,7 +519,7 @@ def get_datasets(data_config, split_rate=0.1, be_top_left=False, train=True):
     
     df = pd.read_csv(data_config["path"], encoding="ISO-8859-1", on_bad_lines='skip')
     df = df.sample(frac=1,replace=False,random_state=17).reset_index(drop=True)\
-
+        .to_numpy()[data_config["offset"]:data_config["offset"]+data_config["data_size"]]
     games = [game for game in df if check(game, data_config["data_source"], data_config["num_moves"])]
     print(f'check_rate:{len(games)/len(df)}')
     print(f'has {len(games)} games')
