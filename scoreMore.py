@@ -59,6 +59,7 @@ def class_correct_moves(predls, true, n):
             pos *= 2
             sorted_indices = (-(predls[i][j])).argsort()
             top_k_indices = sorted_indices[:n]  
+    
             if true[j] in top_k_indices:
                 pos += 1
         records[pos].append(j)
@@ -188,18 +189,17 @@ def get_data_pred(data_config, models, data_types, device):
         else:
             predl, _ = prediction(data_types[i], model, device, test_loaderP)
         predls.append(predl)
-    
-    return testDataP, testDataW, predls, trues
+    return testDataP, testDataW, predls, trues.cpu().numpy()
 
 def mix_acc(n, data_config, device, models, data_types, smart=None):
     
     _, _, predls, trues = get_data_pred(data_config, models, data_types, device)
-   
+    
     with open('analyzation.yaml', 'r') as file:
         args = yaml.safe_load(file)
-    precs = [args["pos_recall"][f"model_{data_config["num_moves"]}"]["ResNet"],
-             args["pos_recall"][f"model_{data_config["num_moves"]}"]["ViT"],
-             args["pos_recall"][f"model_{data_config["num_moves"]}"]["ST"]]
+    precs = [args["pos_recall"][f'model_{data_config["num_moves"]}']["ResNet"],
+             args["pos_recall"][f'model_{data_config["num_moves"]}']["ViT"],
+             args["pos_recall"][f'model_{data_config["num_moves"]}']["ST"]]
     
     total = len(trues)
     correct = 0
@@ -230,7 +230,7 @@ def mix_acc(n, data_config, device, models, data_types, smart=None):
 def compare_correct(data_config, device, models, data_types):
 
     testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
-
+    
     record1 = class_correct_moves(predls, trues, 1)
     total = len(trues)
 
@@ -277,27 +277,28 @@ def score_more(data_config, models, device, score_type):
 if __name__ == "__main__":
     data_config = {}
     data_config["path"] = 'datas/data_240119.csv'
-    data_config["data_size"] = 15000
-    data_config["offset"] = 15000
+    data_config["data_size"] = 35000
+    data_config["offset"] = 0
     data_config["data_type"] = "Word"
     data_config["data_source"] = "pros"
-    data_config["num_moves"] = 160
+    data_config["num_moves"] = 240
 
     model_config = {}
-    model_config["model_name"] = "BERTxpretrained"
+    model_config["model_name"] = "ResNet"
     model_config["model_size"] = "mid"
 
-    device = "cuda:0"
-    score_type = "mix_acc"
+    device = "cuda:1"
+    score_type = "compare_correct"
 
     data_types = ['Picture', 'Picture', 'Picture']
     model_names = ["ResNet", "ViT", "ST"] #abc
-    states = [f'models_{data_config["num_moves"]}/ResNet1_10000.pt',
-              f'models_{data_config["num_moves"]}/ViT1_10000.pt',
-              f'models_{data_config["num_moves"]}/ST1_10000.pt']
+    states = [f'models_{data_config["num_moves"]}/ResNet1_1600.pt',
+              f'models_{data_config["num_moves"]}/ViT1_1600.pt',
+              f'models_{data_config["num_moves"]}/ST1_1600.pt']
     models = []
     for i in range(len(model_names)):
-        model = get_model(model_names[i], model_config["model_size"]).to(device)
+        model_config["model_name"] = model_names[i]
+        model = get_model(model_config).to(device)
         state = torch.load(states[i])
         model.load_state_dict(state)
         models.append(model)
