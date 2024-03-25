@@ -1,11 +1,47 @@
 import numpy as np
 from tqdm import tqdm
-import yaml
+import torch
 import matplotlib.pyplot as plt
-import copy
 
 from myDatasets import get_datasets
+from myModels import get_model
 
+def cosine_similarity(vec1, vec2):
+    dot_product = np.dot(vec1, vec2)
+    magnitude_vec1 = np.linalg.norm(vec1)
+    magnitude_vec2 = np.linalg.norm(vec2)
+    if magnitude_vec1 != 0 and magnitude_vec2 != 0:
+        similarity = dot_product / (magnitude_vec1 * magnitude_vec2)
+    else:
+        similarity = 0
+    return similarity
+
+def embedding_distance(model, games):
+    mat = np.zeros((361,361))
+    count = np.zeros((361,361))
+    model.eval()
+    embedding_weights = model.bert.get_input_embeddings()
+    input_embeddings = embedding_weights(games).detach().numpy()
+    for i, (game, game_v) in tqdm(enumerate(zip(games, input_embeddings)), total=len(games), leave=False):
+        for j, (move, move_v) in enumerate(zip(game, game_v)):
+            if move > 0 and move < 362:
+                for k, (move2, move_v2) in enumerate(zip(game, game_v)):
+                    if k > j and move2 > 0 and move2 < 362:
+                        move -= 1
+                        move2 -= 1
+                        dis = cosine_similarity(move_v, move_v2)
+                        mat[move][move2] += dis
+                        count[move][move2] += 1
+                        mat[move2][move] += dis
+                        count[move2][move] += 1
+    for i in range(361):
+        for j in range(361):
+            if count[i][j]:
+                mat[i][j] /= count[i][j]
+    np.save('dis.npy', mat)
+
+    return mat
+    
 
 def check_atari(game, x, y, p):
     pp = 1
@@ -32,9 +68,9 @@ def check_atari(game, x, y, p):
     
 def plot_board(mat):
     mat = np.array(mat).reshape(19,19)
-    cmap = plt.get_cmap('coolwarm')
+    cmap = plt.get_cmap('viridis')
     plt.imshow(mat, cmap=cmap)
-    cbar = plt.colorbar()
+    plt.colorbar()
     plt.show()
 
 def find_atari(games, trues):
@@ -63,61 +99,29 @@ def find_atari(games, trues):
     plot_board(pos)
     return
 
-def rotate_matrix_90(matrix):
-    n = 19
-    rotated_matrix = [0] * n * n
-    for i in range(n):
-        for j in range(n):
-            rotated_i = j
-            rotated_j = n - 1 - i
-            rotated_matrix[rotated_i * n + rotated_j] = matrix[i * n + j]
-    
-    return rotated_matrix
 
 if __name__ == "__main__":
-    
-    path = 'datas/data_240119.csv'
-    data_source = "pros"
-    data_type = 'Picture'
-    num_moves = 80
-    data_size = 30000
-    split_rate = 1
-    be_top_left = False
-    #_, testData = get_datasets(path, data_type, data_source, data_size, num_moves, split_rate, be_top_left, train=False)
-    
-    #find_atari(testData.x, testData.y)
-    with open('D:/codes/python/.vscode/Transformer_Go/analyzation.yaml', 'r') as file:
-        args = yaml.safe_load(file)
-    mat1 = args["pos_recall"]["model_240"]["ResNet"]
-    mat2 = args["pos_recall"]["model_240"]["ST"]
-    mat3 = args["pos_recall"]["model_240"]["ViT"]
+    data_config = {}
+    data_config["path"] = 'datas/data_240119.csv'
+    data_config["data_size"] = 30000
+    data_config["offset"] = 0
+    data_config["data_type"] = "Word"
+    data_config["data_source"] = "pros"
+    data_config["num_moves"] = 80
 
-    tmp = copy.deepcopy(mat1)
-    for _ in range(3):
-        tmp = rotate_matrix_90(tmp)
-        for i in range(361):
-            mat1[i] += tmp[i]
-    for i in range(361):
-        mat1[i] /= 4
-    
-    tmp = copy.deepcopy(mat2)
-    for _ in range(3):
-        tmp = rotate_matrix_90(tmp)
-        for i in range(361):
-            mat2[i] += tmp[i]
-    for i in range(361):
-        mat2[i] /= 4
-    
-    tmp = copy.deepcopy(mat3)
-    for _ in range(3):
-        tmp = rotate_matrix_90(tmp)
-        for i in range(361):
-            mat3[i] += tmp[i]
-    for i in range(361):
-        mat3[i] /= 4
-    
+    model_config = {}
+    model_config["model_name"] = "BERT"
+    model_config["model_size"] = "mid"
+    model_config["config_path"] = "models_160/p1/config.json"
+    model_config["state_path"] = "models_160/p1/model.safetensors"
 
-    mat12 = [mat1[i]-mat2[i] for i in range(361)]
-    mat13 = [mat1[i]-mat3[i] for i in range(361)]
-    mat23 = [mat2[i]-mat3[i] for i in range(361)]
-    plot_board(mat23)
+    device = "cuda:1"
+   
+    trainData, testData = get_datasets(data_config, 1, train=False)
+    games = torch.stack([testData.x[80*i+79] for i in range(int(len(testData.x)/80))])
+    print(games.shape)
+    model = get_model(model_config)
+    mats = embedding_distance(model, games)
+    
+    mat = np.load('D:/codes/python/.vscode/Transformer_Go/tmp.npy')
+    plot_board(mat[68])
