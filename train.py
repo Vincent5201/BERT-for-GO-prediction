@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
-
+import random
 from myDatasets import get_datasets
 from myModels import get_model
 
@@ -46,14 +46,14 @@ class CustomCrossEntropyLoss(nn.Module):
 
 data_config = {}
 data_config["path"] = 'datas/data_240119.csv'
-data_config["data_size"] = 15000
-data_config["offset"] = 15000
+data_config["data_size"] = 300
+data_config["offset"] = 0
 data_config["data_type"] = "Word"
 data_config["data_source"] = "pros"
-data_config["num_moves"] = 160
+data_config["num_moves"] = 80
 
 model_config = {}
-model_config["model_name"] = "BERTxpretrained"
+model_config["model_name"] = "BERT"
 model_config["model_size"] = "mid"
 model_config["config_path"] = "models_160/p1/config.json"
 model_config["state_path"] = "models_160/p1/model.safetensors"
@@ -63,7 +63,12 @@ num_epochs = 50
 lr = 5e-5
 device = "cuda:1"
 save = True
+random_seed = 42
 
+
+random.seed(random_seed)
+torch.manual_seed(random_seed)
+torch.cuda.manual_seed_all(random_seed)
 model = get_model(model_config).to(device)
 
 trainData, testData = get_datasets(data_config)
