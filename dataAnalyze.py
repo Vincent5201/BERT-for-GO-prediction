@@ -7,16 +7,25 @@ from myDatasets import get_datasets
 from myModels import get_model
 
 def cosine_similarity(vec1, vec2):
-    dot_product = np.dot(vec1, vec2)
     magnitude_vec1 = np.linalg.norm(vec1)
     magnitude_vec2 = np.linalg.norm(vec2)
     if magnitude_vec1 != 0 and magnitude_vec2 != 0:
-        similarity = dot_product / (magnitude_vec1 * magnitude_vec2)
+        similarity = np.dot(vec1, vec2) / (magnitude_vec1 * magnitude_vec2)
     else:
         similarity = 0
     return similarity
 
-def embedding_distance(model, games):
+def embedding_distance(data_config, model_config):
+    if data_config["data_type"] != "Word":
+        print("wrong data type")
+        return
+    _, testData = get_datasets(data_config, 1, train=False)
+    games = torch.stack([testData.x[80*i+79] for i in range(int(len(testData.x)/80))])
+    print(games.shape)
+    model = get_model(model_config)
+    state = torch.load(f'models_{data_config["num_moves"]}/BERT1_30000.pt')
+    model.load_state_dict(state)
+
     mat = np.zeros((361,361))
     count = np.zeros((361,361))
     model.eval()
@@ -24,24 +33,45 @@ def embedding_distance(model, games):
     input_embeddings = embedding_weights(games).detach().numpy()
     for i, (game, game_v) in tqdm(enumerate(zip(games, input_embeddings)), total=len(games), leave=False):
         for j, (move, move_v) in enumerate(zip(game, game_v)):
-            if move > 0 and move < 362:
+            if move and move < 362:
                 for k, (move2, move_v2) in enumerate(zip(game, game_v)):
-                    if k > j and move2 > 0 and move2 < 362:
+                    if k > j and move2 and move2 < 362 and move != move2:
                         move -= 1
                         move2 -= 1
-                        dis = cosine_similarity(move_v, move_v2)
-                        mat[move][move2] += dis
+                        simi = cosine_similarity(move_v, move_v2)
+                        #euclidean_distance = torch.norm(move_v - move_v2, p=2)
+                        mat[move][move2] += simi
                         count[move][move2] += 1
-                        mat[move2][move] += dis
+                        mat[move2][move] += simi
                         count[move2][move] += 1
     for i in range(361):
         for j in range(361):
             if count[i][j]:
                 mat[i][j] /= count[i][j]
-    np.save('dis.npy', mat)
+    np.save('dis_2.npy', mat)
 
     return mat
-    
+
+def data_similarity(data_config):
+    _, testData = get_datasets(data_config, 1, train=False)
+    games = torch.stack([testData.x[80*i+79] for i in range(int(len(testData.x)/80))]).cpu().numpy()
+    print(games.shape)
+    counts = [0]*(data_config["num_moves"]+1)
+    records = np.zeros((len(games), 361))
+    for i, game in tqdm(enumerate(games), total=len(games), leave=False):
+        for p in range(19):
+            for q in range(19):
+                if game[0][p][q]:
+                    records[i][19*p+q] = 1
+                elif game[1][p][q]:
+                    records[i][19*p+q] = -1
+    print("records end")
+    for i, record1 in tqdm(enumerate(records), total=len(records), leave=False):
+        for j, record2 in enumerate(records):
+            if j > i:
+                counts[np.sum((record1 != 0) & (record1 == record2))] += 1
+    print(counts)
+    return counts
 
 def check_atari(game, x, y, p):
     pp = 1
@@ -102,7 +132,7 @@ def find_atari(games, trues):
 
 if __name__ == "__main__":
     data_config = {}
-    data_config["path"] = 'datas/data_240119.csv'
+    data_config["path"] = 'D:\codes\python\.vscode\Transformer_Go\datas\data_240119.csv'
     data_config["data_size"] = 30000
     data_config["offset"] = 0
     data_config["data_type"] = "Word"
@@ -116,12 +146,7 @@ if __name__ == "__main__":
     model_config["state_path"] = "models_160/p1/model.safetensors"
 
     device = "cuda:1"
-   
-    trainData, testData = get_datasets(data_config, 1, train=False)
-    games = torch.stack([testData.x[80*i+79] for i in range(int(len(testData.x)/80))])
-    print(games.shape)
-    model = get_model(model_config)
-    mats = embedding_distance(model, games)
+
     
-    mat = np.load('D:/codes/python/.vscode/Transformer_Go/tmp.npy')
-    plot_board(mat[68])
+    mat = np.load('D:/codes/python/.vscode/Transformer_Go/cos_simi.npy')
+    plot_board(mat[60])
