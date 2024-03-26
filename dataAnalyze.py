@@ -2,6 +2,7 @@ import numpy as np
 from tqdm import tqdm
 import torch
 import matplotlib.pyplot as plt
+import yaml
 
 from myDatasets import get_datasets
 from myModels import get_model
@@ -34,9 +35,9 @@ def embedding_distance(data_config, model_config):
     for i, (game, game_v) in tqdm(enumerate(zip(games, input_embeddings)), total=len(games), leave=False):
         for j, (move, move_v) in enumerate(zip(game, game_v)):
             if move and move < 362:
+                move -= 1
                 for k, (move2, move_v2) in enumerate(zip(game, game_v)):
                     if k > j and move2 and move2 < 362 and move != move2:
-                        move -= 1
                         move2 -= 1
                         simi = cosine_similarity(move_v, move_v2)
                         #euclidean_distance = torch.norm(move_v - move_v2, p=2)
@@ -98,11 +99,18 @@ def check_atari(game, x, y, p):
     
 def plot_board(mat):
     mat = np.array(mat).reshape(19,19)
-    cmap = plt.get_cmap('viridis')
+    cmap = plt.get_cmap('coolwarm')
     plt.imshow(mat, cmap=cmap)
     plt.colorbar()
     plt.show()
-
+    
+def plot_array(data):
+    plt.bar(range(len(data)), data)
+    plt.xlabel('moves')
+    plt.ylabel('log2 value')
+    plt.title('How many stones are same.')
+    plt.show()
+    
 def find_atari(games, trues):
     pos = [0]*361
     games = games.cpu().numpy()
@@ -146,7 +154,11 @@ if __name__ == "__main__":
     model_config["state_path"] = "models_160/p1/model.safetensors"
 
     device = "cuda:1"
+    with open('D:/codes/python/.vscode/Transformer_Go/analyzation.yaml', 'r') as file:
+        data = yaml.safe_load(file)["data_similarity"]
+    data = np.log2(np.array(data) + 1)
+    plot_array(data)
 
-    
-    mat = np.load('D:/codes/python/.vscode/Transformer_Go/cos_simi.npy')
-    plot_board(mat[60])
+    #mat = np.load('D:/codes/python/.vscode/Transformer_Go/cos_simi.npy')
+    #print(mat[60][60])
+    #plot_board(mat[313])
