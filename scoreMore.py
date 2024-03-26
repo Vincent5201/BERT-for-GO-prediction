@@ -131,10 +131,10 @@ def vote_prec(sorted_indices, precs):
                 choices = [top_choices[1]]
     return choices
 
-def vote_Res(sorted_indices):
+def vote_model(sorted_indices, choose):
     top_choices = [p[0] for p in sorted_indices]
     if len(top_choices) == len(set(top_choices)):
-        choices = [top_choices[0]]
+        choices = [top_choices[choose]]
     else:
         if len(set(top_choices)) == 1:
             choices = [top_choices[0]]
@@ -189,12 +189,18 @@ def get_data_pred(data_config, models, data_types, device):
         else:
             predl, _ = prediction(data_types[i], model, device, test_loaderP)
         predls.append(predl)
+    np.save('analyzation_data/prediction.npy', np.array(predls))
+    np.save('analyzation_data/trues.npy', trues.cpu().numpy())
+
     return testDataP, testDataW, predls, trues.cpu().numpy()
 
 def mix_acc(n, data_config, device, models, data_types, smart=None):
     
-    _, _, predls, trues = get_data_pred(data_config, models, data_types, device)
+    #_, _, predls, trues = get_data_pred(data_config, models, data_types, device)
+    predls = np.load('analyzation_data/prediction_35000_240.npy')
+    trues = np.load('analyzation_data/trues_35000_240.npy')
     
+    print("pred end")
     with open('analyzation.yaml', 'r') as file:
         args = yaml.safe_load(file)
     precs = [args["pos_recall"][f'model_{data_config["num_moves"]}']["ResNet"],
@@ -214,7 +220,9 @@ def mix_acc(n, data_config, device, models, data_types, smart=None):
         if smart == "prob_vote":
             choices = prob_vote(sorted_indices, sorted_p)
         elif smart == "vote+ResNet":
-            choices = vote_Res(sorted_indices)
+            choices = vote_model(sorted_indices, 0)
+        elif smart == "vote+ViT":
+            choices = vote_model(sorted_indices, 1)
         elif smart == "vote+prec":
             choices = vote_prec(sorted_indices, precs)
         elif smart == "vote":
@@ -270,7 +278,7 @@ def score_more(data_config, models, device, score_type):
         #print(records)
 
     elif score_type == "mix_acc":
-        acc = mix_acc(1, data_config, device, models, data_types, "prob_vote")
+        acc = mix_acc(1, data_config, device, models, data_types, "vote+ViT")
         print(acc)
 
  
@@ -279,7 +287,7 @@ if __name__ == "__main__":
     data_config["path"] = 'datas/data_240119.csv'
     data_config["data_size"] = 35000
     data_config["offset"] = 0
-    data_config["data_type"] = "Word"
+    data_config["data_type"] = "Picture"
     data_config["data_source"] = "pros"
     data_config["num_moves"] = 240
 
@@ -288,13 +296,13 @@ if __name__ == "__main__":
     model_config["model_size"] = "mid"
 
     device = "cuda:1"
-    score_type = "compare_correct"
+    score_type = "mix_acc"
 
     data_types = ['Picture', 'Picture', 'Picture']
     model_names = ["ResNet", "ViT", "ST"] #abc
-    states = [f'models_{data_config["num_moves"]}/ResNet1_1600.pt',
-              f'models_{data_config["num_moves"]}/ViT1_1600.pt',
-              f'models_{data_config["num_moves"]}/ST1_1600.pt']
+    states = [f'models_{data_config["num_moves"]}/ResNet1_10000.pt',
+              f'models_{data_config["num_moves"]}/ViT1_10000.pt',
+              f'models_{data_config["num_moves"]}/ST1_10000.pt']
     models = []
     for i in range(len(model_names)):
         model_config["model_name"] = model_names[i]

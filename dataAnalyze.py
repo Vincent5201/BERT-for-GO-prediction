@@ -2,7 +2,6 @@ import numpy as np
 from tqdm import tqdm
 import torch
 import matplotlib.pyplot as plt
-import yaml
 
 from myDatasets import get_datasets
 from myModels import get_model
@@ -15,6 +14,9 @@ def cosine_similarity(vec1, vec2):
     else:
         similarity = 0
     return similarity
+
+def euclidean_distance(vec1, vec2):
+    return np.sqrt(np.sum((vec1 - vec2) ** 2))
 
 def embedding_distance(data_config, model_config):
     if data_config["data_type"] != "Word":
@@ -39,17 +41,17 @@ def embedding_distance(data_config, model_config):
                 for k, (move2, move_v2) in enumerate(zip(game, game_v)):
                     if k > j and move2 and move2 < 362 and move != move2:
                         move2 -= 1
-                        simi = cosine_similarity(move_v, move_v2)
-                        #euclidean_distance = torch.norm(move_v - move_v2, p=2)
-                        mat[move][move2] += simi
+                        #simi = cosine_similarity(move_v, move_v2)
+                        dis = euclidean_distance(move_v, move_v2)
+                        mat[move][move2] += dis
                         count[move][move2] += 1
-                        mat[move2][move] += simi
+                        mat[move2][move] += dis
                         count[move2][move] += 1
     for i in range(361):
         for j in range(361):
             if count[i][j]:
                 mat[i][j] /= count[i][j]
-    np.save('dis_2.npy', mat)
+    np.save('analyzation_data/dis.npy', mat)
 
     return mat
 
@@ -99,18 +101,11 @@ def check_atari(game, x, y, p):
     
 def plot_board(mat):
     mat = np.array(mat).reshape(19,19)
-    cmap = plt.get_cmap('coolwarm')
+    cmap = plt.get_cmap('viridis')
     plt.imshow(mat, cmap=cmap)
     plt.colorbar()
     plt.show()
-    
-def plot_array(data):
-    plt.bar(range(len(data)), data)
-    plt.xlabel('moves')
-    plt.ylabel('log2 value')
-    plt.title('How many stones are same.')
-    plt.show()
-    
+
 def find_atari(games, trues):
     pos = [0]*361
     games = games.cpu().numpy()
@@ -137,6 +132,62 @@ def find_atari(games, trues):
     plot_board(pos)
     return
 
+def pred_analyze(predls, trues):
+    
+    records = [[0]*4 for _ in range(5)]
+    print("start classiy")
+    for j in tqdm(range(len(trues)), total=len(trues), leave=False):
+        choose = [(-(predls[i][j])).argsort()[0] for i in range(3)]
+        p = 0
+        if choose[0] == choose[1]:
+            if choose[0] == choose[2]:
+                p = 4
+            else:
+                p = 1
+        elif choose[0] == choose[2]:
+            p = 2
+        elif choose[1] == choose[2]:
+            p = 3
+        if p == 0:
+            if trues[j] == choose[0]:
+                records[p][0] += 1
+            elif trues[j] == choose[1]:
+                records[p][1] += 1
+            elif trues[j] == choose[2]:
+                records[p][2] += 1
+            else:
+                records[p][3] += 1
+        elif p == 1:
+            if trues[j] == choose[0]:
+                records[p][0] += 1
+            elif trues[j] == choose[2]:
+                records[p][1] += 1
+            else:
+                records[p][2] += 1
+        elif p == 2:
+            if trues[j] == choose[0]:
+                records[p][0] += 1
+            elif trues[j] == choose[1]:
+                records[p][1] += 1
+            else:
+                records[p][2] += 1
+        elif p == 3:
+            if trues[j] == choose[1]:
+                records[p][0] += 1
+            elif trues[j] == choose[0]:
+                records[p][1] += 1
+            else:
+                records[p][2] += 1
+        else:
+            if trues[j] == choose[0]:
+                records[p][0] += 1
+            else:
+                records[p][1] += 1
+    print(records)
+    return records
+
+
+
 
 if __name__ == "__main__":
     data_config = {}
@@ -154,11 +205,12 @@ if __name__ == "__main__":
     model_config["state_path"] = "models_160/p1/model.safetensors"
 
     device = "cuda:1"
-    with open('D:/codes/python/.vscode/Transformer_Go/analyzation.yaml', 'r') as file:
-        data = yaml.safe_load(file)["data_similarity"]
-    data = np.log2(np.array(data) + 1)
-    plot_array(data)
+    
+    #with open('D:/codes/python/.vscode/Transformer_Go/analyzation.yaml', 'r') as file:
+     #   data = yaml.safe_load(file)["data_similarity"]
+    #data = np.log2(np.array(data) + 1)
+    #plot_array(data)
 
-    #mat = np.load('D:/codes/python/.vscode/Transformer_Go/cos_simi.npy')
-    #print(mat[60][60])
-    #plot_board(mat[313])
+    mat = np.load('D:/codes/python/.vscode/Transformer_Go/analyzationData/dis.npy')
+    
+    plot_board(mat[60])
