@@ -123,11 +123,35 @@ def stepbystep(game):
 def get_tensor_memory_size(tensor):
     return tensor.numel() * tensor.element_size()
 
+def shuffle_pos(games):
+    mat = [345, 160, 143, 207, 257, 2, 350, 309, 88, 346, 255, 282, 180, 275, 171, 115, 23, 79, 324, 343, 231, 227, 9, 228,
+    140, 185, 85, 240, 123, 37, 203, 223, 4, 339, 243, 261, 103, 214, 209, 31, 182, 359, 89, 3, 111, 245, 117, 278, 310,
+    70, 330, 307, 148, 306, 217, 69, 54, 100, 64, 82, 284, 74, 179, 329, 186, 105, 222, 201, 220, 305, 41, 297, 76,
+    136, 328, 1, 250, 272, 157, 314, 14, 43, 126, 164, 58, 151, 17, 145, 249, 28, 291, 132, 169, 83, 113, 91, 267, 335,
+    340, 286, 78, 277, 127, 322, 276, 273, 61, 218, 56, 172, 49, 73, 230, 139, 87, 264, 141, 104, 102, 355, 344, 239,
+    313, 176, 51, 259, 106, 236, 39, 352, 177, 166, 29, 338, 241, 337, 81, 327, 146, 129, 22, 165, 260, 281, 234, 158,
+    348, 118, 45, 349, 137, 194, 25, 190, 110, 130, 20, 191, 246, 15, 142, 175, 316, 265, 33, 356, 149, 315, 155,
+    12, 212, 296, 200, 162, 319, 262, 325, 107, 251, 221, 342, 173, 202, 163, 320, 71, 188, 235, 96, 210, 233, 119, 279,
+    174, 333, 92, 68, 292, 323, 244, 247, 204, 13, 248, 192, 354, 30, 287, 99, 147, 258, 205, 304, 332, 229, 303, 122,
+    150, 288, 131, 124, 5, 6, 59, 52, 311, 318, 11, 271, 270, 336, 55, 232, 295, 269, 18, 199, 34, 213, 114, 42, 302,
+    21, 167, 16, 98, 40, 153, 152, 211, 46, 357, 134, 27, 312, 67, 300, 256, 48, 156, 219, 326, 215, 268, 80, 274,
+    195, 263, 77, 154, 35, 63, 86, 144, 84, 44, 159, 242, 301, 72, 38, 125, 331, 317, 120, 112, 196, 65, 293, 47, 237,
+    8, 347, 108, 128, 116, 75, 294, 10, 62, 183, 24, 351, 181, 101, 224, 238, 341, 198, 93, 353, 280, 358, 36, 285,
+    121, 97, 170, 94, 321, 178, 184, 0, 193, 289, 66, 283, 298, 19, 138, 90, 60, 334, 252, 50, 225, 53, 253, 168, 290,
+    254, 266, 189, 7, 57, 206, 308, 197, 32, 133, 135, 187, 161, 26, 226, 299, 109, 95, 216, 208, 360]
+
+    for i, game in enumerate(games):
+        for j, move in enumerate(game):
+            game[j] = mat[move]
+        games[i] = game
+    return games
+
 def channel_01(datas, k, x, y, turn):
     #plain1 is black
     #plain0 is white
     datas[k][turn%2][x][y] = 1
     #del die 
+    
     def checkDie(x, y, p):
         ans = True
         pp = 1
@@ -164,31 +188,45 @@ def channel_01(datas, k, x, y, turn):
                 datas[k][p][x][y] = 2
                 ans = ans & checkDie(x, y+1, p)
                 datas[k][p][x][y] = 1
-        if ans:
-            # if die, delete it
-            datas[k][p][x][y] = 0
-            for i in range(10,16):
-                datas[k][i][x][y] = 0
         return ans
     
+    def del_die(x, y, p):
+        datas[k][p][x][y] = 0
+        if x > 0 and datas[k][p][x-1][y]:
+            del_die(x-1,y,p)
+        if x < 18 and datas[k][p][x+1][y]:
+            del_die(x+1,y,p)
+        if y > 0 and datas[k][p][x][y-1]:
+            del_die(x,y-1,p)
+        if y < 18 and datas[k][p][x][y+1]:
+            del_die(x,y+1,p)
+        return
     if turn % 2:
         if x > 0 and datas[k][0][x-1][y]:
-            checkDie(x-1, y, 0)
+            if checkDie(x-1, y, 0):
+                del_die(x-1, y, 0)
         if y > 0 and datas[k][0][x][y-1]:
-            checkDie(x, y-1, 0)
+            if checkDie(x, y-1, 0):
+                del_die(x, y-1, 0)
         if x < 18 and datas[k][0][x+1][y]:
-            checkDie(x+1, y, 0)
+            if checkDie(x+1, y, 0):
+                del_die(x+1, y, 0)
         if y < 18 and datas[k][0][x][y+1]:
-            checkDie(x, y+1, 0)
+            if checkDie(x, y+1, 0):
+                del_die(x, y+1, 0)
     else:
-        if x > 0 and datas[k][1][x-1][y]:
-            checkDie(x-1, y, 1)
-        if y > 0 and datas[k][1][x][y-1]:
-            checkDie(x, y-1, 1)
-        if x < 18 and datas[k][1][x+1][y]:
-            checkDie(x+1, y, 1)
-        if y < 18 and datas[k][1][x][y+1]:
-            checkDie(x, y+1, 1)
+        if x > 0 and datas[k][0][x-1][y]:
+            if checkDie(x-1, y, 1):
+                del_die(x-1, y, 1)
+        if y > 0 and datas[k][0][x][y-1]:
+            if checkDie(x, y-1, 1):
+                del_die(x, y-1, 1)
+        if x < 18 and datas[k][0][x+1][y]:
+            if checkDie(x+1, y, 1):
+                del_die(x+1, y, 1)
+        if y < 18 and datas[k][0][x][y+1]:
+            if checkDie(x, y+1, 1):
+                del_die(x, y+1, 1)
     return
 
 def channel_2(datas, k):
@@ -364,33 +402,6 @@ class PicturesDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-class posDataset(Dataset):
-    # data loading
-    def __init__(self, picks, train):
-        x = []
-        y = []
-        for i in range(0,19):
-            if train:
-                if not i in picks:
-                    for j in range(1,19):
-                        x.append([363, i*19+j+1, 362])
-                        y.append(i*19+j)
-            else:
-                if i in picks:
-                    for j in range(1,19):
-                        x.append([363, i*19+j+1, 362])
-                        y.append(i*19+j)
-        
-        self.x = torch.tensor(x)
-        self.y = torch.tensor(y)
-        self.mask = torch.ones(self.x.shape)
-        self.n_samples = len(self.y)
-    def __getitem__(self, index):  
-        return self.x[index], self.mask[index], self.y[index]
-
-    def __len__(self):
-        return self.n_samples
-
 
 def sort_alternate(array):
     result = np.empty(len(array), dtype=array.dtype)
@@ -400,7 +411,9 @@ def sort_alternate(array):
 
 class WordsDataset(Dataset):
     # data loading
-    def __init__(self, games, num_moves, train=True, sort=False):
+    def __init__(self, games, num_moves, train=True, sort=False, shuffle=False):
+        if shuffle:
+            games = shuffle_pos(games)
         gamesall = []
         for game in tqdm(games, total = len(games), leave=False):
             result = stepbystep(game)
@@ -507,16 +520,7 @@ class BERTPretrainDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-def get_datasets(data_config, split_rate=0.1, be_top_left=False, train=True):
-    if data_config["data_type"] == "posTest":
-        pick1 = random.randint(0,18)
-        pick2 = random.randint(0,18)
-        while pick2 == pick1:
-            pick2 = random.randint(0,18)
-        train_dataset = posDataset(set([pick1, pick2]), True)
-        eval_dataset = posDataset(set([pick1, pick2]), False)
-        return train_dataset, eval_dataset
-    
+def get_datasets(data_config, split_rate=0.1, be_top_left=False, train=True):    
     df = pd.read_csv(data_config["path"], encoding="ISO-8859-1", on_bad_lines='skip')
     df = df.sample(frac=1,replace=False,random_state=17).reset_index(drop=True)\
         .to_numpy()[data_config["offset"]:data_config["offset"]+data_config["data_size"]]
