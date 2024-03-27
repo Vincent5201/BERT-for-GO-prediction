@@ -23,6 +23,27 @@ class Bert_Go(nn.Module):
         logits = self.linear2(logits)
         return logits
     
+class BertCNN_Go(nn.Module):
+    def __init__(self, config, num_labels, p_model = None):
+        super(BertCNN_Go, self).__init__()
+        if p_model is None:
+            self.bert = BertModel(config)
+        else:
+            self.bert = p_model
+        self.conv1d = nn.Conv1d(in_channels=config.hidden_size, 
+                                out_channels=config.hidden_size, kernel_size=7)
+        self.maxpool = nn.AdaptiveMaxPool1d(1)
+        self.linear1 = nn.Linear(config.hidden_size, 512)
+        self.linear2 = nn.Linear(512, num_labels)
+    def forward(self, x, m):
+        outputs = self.bert(input_ids=x, attention_mask=m, output_hidden_states=True)["hidden_states"]
+        vef = torch.mean((outputs[0]+outputs[-1])/2, dim=1)
+        vp = self.maxpool(self.conv1d(outputs[1].permute(0, 2, 1))).squeeze(2)
+        output = (vef+vp)/2
+        logits = self.linear1(output)
+        logits = self.linear2(logits)
+        return logits
+    
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernal_size):
         super(ConvBlock, self).__init__()
@@ -158,6 +179,15 @@ def get_model(model_config):
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
         model = Bert_Go(config, 361)
+    elif model_config["model_name"] == "BERTCNN":
+        config = BertConfig() 
+        config.hidden_size = args["hidden_size"]
+        config.num_hidden_layers = args["num_hidden_layers"]
+        config.vocab_size = 364
+        config.num_attention_heads = 1
+        config.intermediate_size = config.hidden_size*4
+        config.position_embedding_type = "relative_key"
+        model = BertCNN_Go(config, 361)
     elif model_config["model_name"] == "BERTxpretrained":
         tensors = {}
         with safe_open(model_config["state_path"], framework="pt") as f:
