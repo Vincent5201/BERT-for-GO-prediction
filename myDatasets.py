@@ -150,83 +150,54 @@ def channel_01(datas, k, x, y, turn):
     #plain1 is black
     #plain0 is white
     datas[k][turn%2][x][y] = 1
-    #del die 
-    
+    live = set()
+    died = set()
     def checkDie(x, y, p):
         ans = True
-        pp = 1
-        if p:
-            pp = 0
-        if x > 0:
-            if datas[k][p][x-1][y] == 0 and datas[k][pp][x-1][y] == 0:
-                #neighbor is empty, alive
-                return False
-            if datas[k][p][x-1][y] == 1:
-                #neighbor is same, check neighbor is alive or not
-                datas[k][p][x][y] = 2
-                #if one neighbor is alive, itself is alive 
-                ans = ans & checkDie(x-1, y, p)
-                datas[k][p][x][y] = 1
-        if y > 0:
-            if datas[k][p][x][y-1] == 0 and datas[k][pp][x][y-1] == 0:
-                return False
-            if datas[k][p][x][y-1] == 1:
-                datas[k][p][x][y] = 2
-                ans = ans & checkDie(x, y-1, p)
-                datas[k][p][x][y] = 1
-        if x < 18:
-            if datas[k][p][x+1][y] == 0 and datas[k][pp][x+1][y] == 0:
-                return False
-            if datas[k][p][x+1][y] == 1:
-                datas[k][p][x][y] = 2
-                ans = ans & checkDie(x+1, y, p)
-                datas[k][p][x][y] = 1
-        if y < 18:
-            if datas[k][p][x][y+1] == 0 and datas[k][pp][x][y+1] == 0:
-                return False
-            if datas[k][p][x][y+1] == 1:
-                datas[k][p][x][y] = 2
-                ans = ans & checkDie(x, y+1, p)
-                datas[k][p][x][y] = 1
+        pp = 0 if p else 1
+        if (x, y, p) in live:
+            return False
+        if (x, y, p) in died:
+            return True
+        died.add((x, y, p))
+        directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19:
+                if datas[k][p][dx][dy] == 0 and datas[k][pp][dx][dy] == 0:
+                    #neighbor is empty, alive
+                    live.add((x, y, p))
+                    return False
+                if datas[k][p][dx][dy] == 1:
+                    #neighbor is same, check neighbor is alive or not
+                    #if one neighbor is alive, itself is alive 
+                    ans = ans & checkDie(dx, dy, p)
+        if ans:
+            died.add((x, y, p))
+        else:
+            died.remove((x, y, p))
+            live.add((x, y, p))
         return ans
     
     def del_die(x, y, p):
         datas[k][p][x][y] = 0
-        if x > 0 and datas[k][p][x-1][y]:
-            del_die(x-1,y,p)
-        if x < 18 and datas[k][p][x+1][y]:
-            del_die(x+1,y,p)
-        if y > 0 and datas[k][p][x][y-1]:
-            del_die(x,y-1,p)
-        if y < 18 and datas[k][p][x][y+1]:
-            del_die(x,y+1,p)
+        for i in range(10,16):
+            datas[k][i][x][y] = 0
+        directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][p][dx][dy]:
+                del_die(dx,dy,p)
         return
-    if turn % 2:
-        if x > 0 and datas[k][0][x-1][y]:
-            if checkDie(x-1, y, 0):
-                del_die(x-1, y, 0)
-        if y > 0 and datas[k][0][x][y-1]:
-            if checkDie(x, y-1, 0):
-                del_die(x, y-1, 0)
-        if x < 18 and datas[k][0][x+1][y]:
-            if checkDie(x+1, y, 0):
-                del_die(x+1, y, 0)
-        if y < 18 and datas[k][0][x][y+1]:
-            if checkDie(x, y+1, 0):
-                del_die(x, y+1, 0)
-    else:
-        if x > 0 and datas[k][0][x-1][y]:
-            if checkDie(x-1, y, 1):
-                del_die(x-1, y, 1)
-        if y > 0 and datas[k][0][x][y-1]:
-            if checkDie(x, y-1, 1):
-                del_die(x, y-1, 1)
-        if x < 18 and datas[k][0][x+1][y]:
-            if checkDie(x+1, y, 1):
-                del_die(x+1, y, 1)
-        if y < 18 and datas[k][0][x][y+1]:
-            if checkDie(x, y+1, 1):
-                del_die(x, y+1, 1)
+    
+    directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+    for (dx, dy) in directions:
+        if turn % 2:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][0][dx][dy]:
+                if checkDie(dx, dy, 0):
+                    del_die(dx, dy, 0)
+        else:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][1][dx][dy]:
+                if checkDie(dx, dy, 1):
+                    del_die(dx, dy, 1)
     return
 
 def channel_2(datas, k):
@@ -236,10 +207,7 @@ def channel_2(datas, k):
 
 def channel_3(datas, k, turn):
     #next turn (all 1/0)
-    if turn % 2:
-        datas[k][3] = np.zeros([19,19])
-    else:
-        datas[k][3] = np.ones([19,19])
+    datas[k][3] = np.zeros([19,19]) if turn%2 else np.ones([19,19])
     return
 
 def channel_49(datas, k, turn, labels):
@@ -257,49 +225,27 @@ def channel_49(datas, k, turn, labels):
     return
 
 def channel_1015(datas, k, x, y, turn):
-
-    def check_liberty(datas, k, x, y, p):
-        pp = 1
+    def check_liberty(x, y, p):
         liberty = 0
-        if p:
-            pp = 0
+        pp = 0 if p else 1
         datas[k][p][x][y] = 2
-        if x > 0:
-            if datas[k][pp][x-1][y] == 0 and datas[k][p][x-1][y] == 0:
-                liberty += 1
-                datas[k][p][x-1][y] = 3
-            elif datas[k][p][x-1][y] == 1:
-                liberty += check_liberty(datas, k, x-1, y, p)
-        if y > 0:
-            if datas[k][pp][x][y-1] == 0 and datas[k][p][x][y-1] == 0:
-                liberty += 1
-                datas[k][p][x][y-1] = 3
-            elif datas[k][p][x][y-1] == 1:
-                liberty += check_liberty(datas, k, x, y-1, p)
-        if x < 18:
-            if datas[k][pp][x+1][y] == 0 and datas[k][p][x+1][y] == 0:
-                liberty += 1
-                datas[k][p][x+1][y] = 3
-            elif datas[k][p][x+1][y] == 1:
-                liberty += check_liberty(datas, k, x+1, y, p)
-        if y < 18:
-            if datas[k][pp][x][y+1] == 0 and datas[k][p][x][y+1] == 0:
-                liberty += 1
-                datas[k][p][x][y+1] = 3
-            elif datas[k][p][x][y+1] == 1:
-                liberty += check_liberty(datas, k, x, y+1, p)
+        directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19:
+                if datas[k][pp][dx][dy] == 0 and datas[k][p][dx][dy] == 0:
+                    liberty += 1
+                    datas[k][p][dx][dy] = 3
+                elif datas[k][p][dx][dy] == 1:
+                    liberty += check_liberty(dx, dy, p)
+       
         datas[k][p][x][y] = 1
-        if x > 0 and datas[k][p][x-1][y] == 3:
-            datas[k][p][x-1][y] = 0
-        if y > 0 and datas[k][p][x][y-1] == 3:
-            datas[k][p][x][y-1] = 0
-        if x < 18 and datas[k][p][x+1][y] == 3:
-           datas[k][p][x+1][y] = 0
-        if y < 18 and datas[k][p][x][y+1] == 3:
-            datas[k][p][x][y+1] = 0
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][p][dx][dy] == 3:
+                datas[k][p][dx][dy] = 0
+        
         return liberty
     
-    def set_liberty_plane(datas, k, x, y, liberty):
+    def set_liberty_plane(x, y, liberty):
         if liberty < 6:
             for i in range(10,16):
                 if i == liberty+9:
@@ -312,37 +258,26 @@ def channel_1015(datas, k, x, y, turn):
             datas[k][15][x][y] = 1
         return 
     
-    
-    def set_liberty(datas, k, x, y, p, liberty):
+    def set_liberty(x, y, p, liberty):
         datas[k][p][x][y] = 2
-        set_liberty_plane(datas, k, x, y, liberty)
-        if x > 0 and datas[k][p][x-1][y] == 1:
-            set_liberty(datas, k, x-1, y, p, liberty)
-        if y > 0 and datas[k][p][x][y-1] == 1:
-            set_liberty(datas, k, x, y-1, p, liberty)
-        if x < 18 and datas[k][p][x+1][y] == 1:
-            set_liberty(datas, k, x+1, y, p, liberty)
-        if y < 18 and datas[k][p][x][y+1] == 1:
-            set_liberty(datas, k, x, y+1, p, liberty)
+        set_liberty_plane(x, y, liberty)
+        directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][p][dx][dy] == 1:
+                set_liberty(dx, dy, p, liberty)
         datas[k][p][x][y] = 1
         return
     
     if datas[k][2][x][y]:
-        ret = 0
-    else:
-        ret = check_liberty(datas, k, x, y, turn%2)
-        set_liberty(datas, k, x, y, turn%2, ret)
-    pp = 1
-    if turn%2:
-        pp = 0
-    if x > 0 and datas[k][pp][x-1][y]:
-        set_liberty(datas, k, x-1, y, pp, check_liberty(datas, k, x-1, y, pp))
-    if y > 0 and datas[k][pp][x][y-1]:
-        set_liberty(datas, k, x, y-1, pp, check_liberty(datas, k, x, y-1, pp))
-    if x < 18 and datas[k][pp][x+1][y]:
-        set_liberty(datas, k, x+1, y, pp, check_liberty(datas, k, x+1, y, pp))
-    if y < 18 and datas[k][pp][x][y+1]:
-        set_liberty(datas, k, x, y+1, pp, check_liberty(datas, k, x, y+1, pp))
+        return
+    
+    ret = check_liberty(x, y, turn%2)
+    set_liberty(x, y, turn%2, ret)
+    pp = 0 if turn%2 else 1
+    directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+    for (dx, dy) in directions:
+        if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][pp][dx][dy]:
+            set_liberty(dx, dy, pp, check_liberty(dx, dy, pp))
 
     return ret
 
