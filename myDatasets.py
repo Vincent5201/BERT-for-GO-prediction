@@ -238,11 +238,7 @@ def channel_1015(datas, k, x, y, turn):
                 elif datas[k][p][dx][dy] == 1:
                     liberty += check_liberty(dx, dy, p)
        
-        datas[k][p][x][y] = 1
-        for (dx, dy) in directions:
-            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][p][dx][dy] == 3:
-                datas[k][p][dx][dy] = 0
-        
+        datas[k][p][x][y] = 1        
         return liberty
     
     def set_liberty_plane(x, y, liberty):
@@ -278,6 +274,12 @@ def channel_1015(datas, k, x, y, turn):
     for (dx, dy) in directions:
         if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][pp][dx][dy]:
             set_liberty(dx, dy, pp, check_liberty(dx, dy, pp))
+        for i in range(19):
+            for j in range(19):
+                if datas[k][0][i][j] == 3:
+                    datas[k][0][i][j] = 0
+                if datas[k][1][i][j] == 3:
+                    datas[k][1][i][j] = 0
 
     return ret
 
