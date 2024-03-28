@@ -225,6 +225,7 @@ def channel_49(datas, k, turn, labels):
     return
 
 def channel_1015(datas, k, x, y, turn):
+    counted_empty = set()
     def check_liberty(x, y, p):
         liberty = 0
         pp = 0 if p else 1
@@ -233,8 +234,9 @@ def channel_1015(datas, k, x, y, turn):
         for (dx, dy) in directions:
             if dx >= 0 and dx < 19 and dy >= 0 and dy < 19:
                 if datas[k][pp][dx][dy] == 0 and datas[k][p][dx][dy] == 0:
-                    liberty += 1
-                    datas[k][p][dx][dy] = 3
+                    if not (dx, dy) in counted_empty:
+                        liberty += 1
+                        counted_empty.add((dx,dy))
                 elif datas[k][p][dx][dy] == 1:
                     liberty += check_liberty(dx, dy, p)
        
@@ -272,15 +274,9 @@ def channel_1015(datas, k, x, y, turn):
     pp = 0 if turn%2 else 1
     directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
     for (dx, dy) in directions:
+        counted_empty.clear()
         if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][pp][dx][dy]:
             set_liberty(dx, dy, pp, check_liberty(dx, dy, pp))
-        for i in range(19):
-            for j in range(19):
-                if datas[k][0][i][j] == 3:
-                    datas[k][0][i][j] = 0
-                if datas[k][1][i][j] == 3:
-                    datas[k][1][i][j] = 0
-
     return ret
 
 
