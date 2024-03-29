@@ -101,7 +101,7 @@ def check_atari(game, x, y, p):
     
 def plot_board(mat):
     mat = np.array(mat).reshape(19,19)
-    cmap = plt.get_cmap('viridis')
+    cmap = plt.get_cmap('coolwarm')
     plt.imshow(mat, cmap=cmap)
     plt.colorbar()
     plt.show()
@@ -211,6 +211,6 @@ if __name__ == "__main__":
     #data = np.log2(np.array(data) + 1)
     #plot_array(data)
 
-    mat = np.load('D:/codes/python/.vscode/Transformer_Go/analyzationData/dis.npy')
-    
-    plot_board(mat[60])
+    mat = np.load('D:/codes/python/.vscode/Transformer_Go/analyzationData/cos_simi.npy')
+    mat[180][180] = 0
+    plot_board(mat[180])
