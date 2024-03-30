@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from tqdm import tqdm
-
 from myDatasets import get_datasets, transfer, channel_01, channel_1015, channel_2, channel_3, channel_49
 from myModels import get_model
 
@@ -60,9 +59,8 @@ def next_moves(data_type, num_moves, model, games, num, device):
             channel_1015(datas, 0, x, y, j+1)
         
         channel_2(datas, 0)
-        channel_3(datas, 0, len(games[0])-1)
+        channel_3(datas, 0, len(games[0]))
         channel_49(datas, 0, len(games[0])-1, games[0])
-        
         x = torch.tensor(datas).to(device)
         model.eval()
         with torch.no_grad():
@@ -90,21 +88,12 @@ if __name__ == "__main__":
     model_config["config_path"] = "models_160/p1/config.json"
     model_config["state_path"] = "models_160/p1/model.safetensors"
 
-    device = "cuda:1"
-    games = [['dd','pd','cp','pq','qo','np','fq','ql','qf','qe','pf','nd','qj','fc','hc','fe','lc',
-              'cf','be','jc','oc','od','nc','pc','md','nf','ie','je','jf','ke','kf','le','gf',
-              'ff','gg','fg','eb','fb','ec','id','gd','fd','hd','if','ig','he','ge','jg','ih',
-              'kg','kb','jb','pm','pl','om','ol','qq','qr','rr','qp','rq','pp','rp','rn','qn',
-              'rm','pr','or','qs','nm','cl','qh','ph','rh','re','rd','oi','rj','mh','ki','lf',
-              'me','lj','kj','lk','kk','ll','kl','lm','nn','km','jm','kp','jn','lo','ip','jp',
-              'iq','io','ho','jo','hn','hp','gp','hq','gq','hr','gr','ir','dq','dp','eq','cq',
-              'ep','jl','il','jk','ik','jj','ji','ij','ii','hj','hi','gi','gj','hk','gh','fi',
-              'fh','lg','ei','fj','gk','hl','gl','im','in','gm','hm','fl','fm','fk','gn','fn',
-              'em','eo','fo','en','dm','cn','dk','dl','el','ek','cm','hh','hf','fb','ga','gl',
-              'dj','bm','bk','bl','ck','bf','cg','bg','ch','ce','bh','df','dg','pb','qb','oa',
-              'mb','mc','nb','ob','rb','ka','ja','ma','lb','nr','oq','os','nq','ro','mr','ns',
-              'lr','nl','oo','mo','nk','ml']]
-    
+    device = "cuda:0"
+    games = [['dd','pp','pd','dp','fq','eq','fp','dn','jq','cc','dc','cd','de','ce','df','cf',
+              'dg','cg','dh','fr','gr','er','hr','ch','di','qo','nc','qi','qf','ph','jc','id',
+              'jd','ic','ie','je','he','jb','ke','jf','kd','kf','lf','lg','le','mg','jh','ig',
+              'ih','hg','hh','kg','gg','kb','gf','lc','gc','md']]
+
     data_type = 'Picture'
     model_config["model_name"] = "ST"
     model = get_model(model_config).to(device)
@@ -142,4 +131,3 @@ if __name__ == "__main__":
     ans = [(int(step/19),int(step%19)) for step in ans]
     print(ans)
     """
-    
