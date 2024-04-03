@@ -2,11 +2,32 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
+import torch.nn as nn
+import torch.nn.utils.prune as prune
 
 from use import next_moves, prediction
 from myModels import get_model
 from myDatasets import transfer_back, channel_01, channel_2, transfer, channel_1015, get_datasets
 from dataAnalyze import plot_board
+
+
+def prune_model(model, prune_threshold):
+    num_weights_before = 0
+    for name, module in model.named_modules():
+        if hasattr(module, 'weight') and (not getattr(module, 'weight') is None):
+            num_weights_before += float(module.weight.nelement())
+    for name, module in model.named_modules():
+        if hasattr(module, 'weight') and (not getattr(module, 'weight') is None) and\
+                not ("norm" in name) and not ("bn" in name):
+            print(name)
+            prune.l1_unstructured(module, name='weight', amount=prune_threshold)
+            prune.remove(module, 'weight')
+    num_weights_after = 0
+    for name, module in model.named_modules():
+        if hasattr(module, 'weight') and (not getattr(module, 'weight') is None):
+            num_weights_after += float(torch.sum(module.weight == 0))
+    print(num_weights_after/num_weights_before)
+    return model
 
 def score_legal(data_type, num_moves, model, device):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
@@ -131,6 +152,7 @@ def score_acc(data_config, model, split, device):
     acc10 = myaccn_split(predl, true, 10, split, data_config["num_moves"])
     acc5 = myaccn_split(predl, true, 5, split, data_config["num_moves"])
     acc1 = myaccn_split(predl, true, 1, split, data_config["num_moves"])
+        
     return acc10, acc5, acc1
 
 def correct_position(data_config, model, device):
@@ -146,7 +168,7 @@ def score_self(data_config, model, score_type, device):
     if score_type == "score":
         score, moves_score, full_score, records = score_legal(
             data_config["data_type"], data_config["num_moves"], model, device)
-        #print(records)
+        print(records)
         print(f'score:{score}/{full_score}')
         print(f'moves_score:{moves_score/full_score}/{data_config["num_moves"]}')
     elif score_type == "feature":
@@ -158,7 +180,7 @@ def score_self(data_config, model, score_type, device):
         print(f'liberty:{liberty}')
     elif score_type == "score_acc":
         #use test data
-        split = 24
+        split = 1
         acc10, acc5, acc1 = score_acc(data_config, model, split, device)
         print(acc10)
         print(acc5)
@@ -174,23 +196,23 @@ def score_self(data_config, model, score_type, device):
 if __name__ == "__main__":
     data_config = {}
     data_config["path"] = 'datas/data_240119.csv'
-    data_config["data_size"] = 35000
+    data_config["data_size"] = 350
     data_config["offset"] = 0
     data_config["data_type"] = "Picture"
     data_config["data_source"] = "pros"
     data_config["num_moves"] = 240
 
     model_config = {}
-    model_config["model_name"] = "ViT"
+    model_config["model_name"] = "ResNet"
     model_config["model_size"] = "mid"
 
-    score_type = "score"
-    device = "cuda:0"
+    score_type = "score_acc"
+    device = "cuda:1"
    
-    state = torch.load(f'models_{data_config["num_moves"]}/ViT1_10000.pt')
+    state = torch.load(f'models_240/ResNet1_10000.pt')
     model = get_model(model_config).to(device)
     model.load_state_dict(state)
-    
+    model = prune_model(model, 0.1)
     score_self(data_config, model, score_type, device)
     
    

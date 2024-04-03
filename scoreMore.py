@@ -6,6 +6,7 @@ import copy
 import math
 import random
 import yaml
+import torch.nn.utils.prune as prune
 
 from use import next_moves, prediction
 from myModels import get_model
@@ -51,11 +52,12 @@ def score_legal_more(data_types, num_moves, models):
     return scores, moves_scores, full_score, errors, records
 
 def class_correct_moves(predls, true, n):
-    records = [[] for _ in range(8)]
+    l = len(predls)
+    records = [[] for _ in range(2**l)]
     print("start classiy")
     for j in tqdm(range(len(true)), total=len(true), leave=False):
         pos = 0
-        for i in range(3):
+        for i in range(l):
             pos *= 2
             sorted_indices = (-(predls[i][j])).argsort()
             top_k_indices = sorted_indices[:n]  
@@ -81,27 +83,6 @@ def check_distance(trues, tgt):
         yl = int((trues[tgt-1]-1)%19)
         return math.sqrt(math.pow(x-xl,2)+math.pow(y-yl,2))
     return None
- 
-def vote_move(sorted_indices, num_move):
-    top_choices = [p[0] for p in sorted_indices]
-    if len(top_choices) == len(set(top_choices)):
-        if i%num_move < 40:
-            choices = [top_choices[2]]
-        elif i%num_move > 190:
-            choices = [top_choices[1]]
-        else:
-            choices = [top_choices[0]]
-    else:
-        if len(set(top_choices)) == 1:
-            choices = [top_choices[0]]
-        else:
-            if top_choices[0] == top_choices[1]:
-                choices = [top_choices[0]]
-            elif top_choices[0] == top_choices[2]:
-                choices = [top_choices[0]]
-            else:
-                choices = [top_choices[1]]
-    return choices
 
 def vote_prec(sorted_indices, precs):    
     mat1, mat2, mat3 = precs
@@ -159,14 +140,58 @@ def prob_vote(sorted_indices, sorted_p):
     choices = list(sorted_vote.keys())
     return choices
 
-def vote(sorted_indices):
+def prob_rank_vote(sorted_indices, sorted_p):
+    prob_vote = {}
+    rank_vote = {}
+    for p, indices in enumerate(sorted_indices):
+        for q, indice in enumerate(indices):
+            if indice in prob_vote.keys():
+                prob_vote[indice] += sorted_p[p][q]
+            else:
+                prob_vote[indice] = sorted_p[p][q]
+            if indice in rank_vote.keys():
+                if p:
+                    rank_vote[indice] += (0.9-q/10)
+                else:
+                    rank_vote[indice] += (1-q/10)
+            else:
+                if p:
+                    rank_vote[indice] = (0.9-q/10)
+                else:
+                    rank_vote[indice] = (1-q/10)
+    sorted_prob = dict(sorted(prob_vote.items(), key=lambda item: item[1], reverse=True))
+    sorted_rank = dict(sorted(rank_vote.items(), key=lambda item: item[1], reverse=True))
+    probs = list(sorted_prob.keys())[:5]
+    ranks = list(sorted_rank.keys())[:5]
+    comb_vote = {}
+    for i, indice in enumerate(probs):
+        if indice in comb_vote.keys():
+            comb_vote[indice] += (0.95-i*i/10)
+        else:
+            comb_vote[indice] = (0.95-i*i/10)
+    for i, indice in enumerate(ranks):
+        if indice in comb_vote.keys():
+            comb_vote[indice] += (1-i*i/10)
+        else:
+            comb_vote[indice] = (1-i*i/10)
+    sorted_comb = dict(sorted(comb_vote.items(), key=lambda item: item[1], reverse=True))
+    combs = list(sorted_comb.keys())[:5]
+    return combs
+
+def rank_vote(sorted_indices):
     vote = {}
     for p, indices in enumerate(sorted_indices):
         for q, indice in enumerate(indices):
             if indice in vote.keys():
-                vote[indice] += (1-q*q/10)
+                if p:
+                    vote[indice] += (0.9-q/10)
+                else:
+                    vote[indice] += (1-q/10)
             else:
-                vote[indice] = (1-q*q/10)
+                if p:
+                    vote[indice] = (0.9-q/10)
+                else:
+                    vote[indice] = (1-q/10)
     sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
     choices = list(sorted_vote.keys())
     return choices
@@ -182,7 +207,6 @@ def get_data_pred(data_config, models, data_types, device):
     data_config["data_type"] = "Picture"
     _, testDataP = get_datasets(data_config, train=False)
     test_loaderP = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
-
     for i, model in enumerate(models):
         if data_types[i] == "Word":
             predl, _ = prediction(data_types[i], model, device, test_loaderW)
@@ -197,15 +221,15 @@ def get_data_pred(data_config, models, data_types, device):
 def mix_acc(n, data_config, device, models, data_types, smart=None):
     
     #_, _, predls, trues = get_data_pred(data_config, models, data_types, device)
-    predls = np.load('analyzation_data/prediction_35000_240.npy')
-    trues = np.load('analyzation_data/trues_35000_240.npy')
-    
-    print("pred end")
-    with open('analyzation.yaml', 'r') as file:
-        args = yaml.safe_load(file)
-    precs = [args["pos_recall"][f'model_{data_config["num_moves"]}']["ResNet"],
-             args["pos_recall"][f'model_{data_config["num_moves"]}']["ViT"],
-             args["pos_recall"][f'model_{data_config["num_moves"]}']["ST"]]
+    predls = np.load('analyzation_data/prediction3_30000_s8596.npy')
+    trues = np.load('analyzation_data/trues_s8596.npy')
+   
+    if "prec" in smart:
+        with open('analyzation_data/analyzation.yaml', 'r') as file:
+            args = yaml.safe_load(file)
+        precs = [args["pos_recall"][f'model_{data_config["num_moves"]}']["ResNet"],
+                args["pos_recall"][f'model_{data_config["num_moves"]}']["ViT"],
+                args["pos_recall"][f'model_{data_config["num_moves"]}']["ST"]]
     
     total = len(trues)
     correct = 0
@@ -225,25 +249,31 @@ def mix_acc(n, data_config, device, models, data_types, smart=None):
             choices = vote_model(sorted_indices, 1)
         elif smart == "vote+prec":
             choices = vote_prec(sorted_indices, precs)
-        elif smart == "vote":
-            choices = vote(sorted_indices)
+        elif smart == "rank_vote":
+            choices = rank_vote(sorted_indices)
+        elif smart == "prob_rank_vote":
+            choices = prob_rank_vote(sorted_indices, sorted_p)
         else:
             choices = [s[0] for s in sorted_indices]
             random.shuffle(choices)
-
         if trues[i] in choices[:n]:
             correct += 1
+
     return correct/total
 
 def compare_correct(data_config, device, models, data_types):
 
     testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
-    
+    #predls = np.load('analyzation_data/prediction4_30000_s8596.npy')
+    #trues = np.load('analyzation_data/trues4_s8596.npy')
     record1 = class_correct_moves(predls, trues, 1)
     total = len(trues)
-
+    avg_move_num= None
+    avg_liberty= None
+    avg_distance= None
+    
     count = [len(record)/total for record in record1]
-
+    """
     move_nums = [[move%data_config["num_moves"] for move in record] for record in record1]
     avg_move_num = [sum(move_num)/len(move_num) if len(move_num) else 0 for move_num in move_nums ]
     
@@ -255,7 +285,7 @@ def compare_correct(data_config, device, models, data_types):
     avg_distance = [[check_distance(trues, move) for move in record] for record in record1]
     avg_distance = [[distance for distance in distances if not distance is None] for distances in avg_distance]
     avg_distance = [sum(distance)/len(distance) if len(distance) else 0 for distance in avg_distance]
-    
+    """
     return record1, count, avg_move_num, avg_liberty, avg_distance
 
 
@@ -278,10 +308,28 @@ def score_more(data_config, models, device, score_type):
         #print(records)
 
     elif score_type == "mix_acc":
-        acc = mix_acc(1, data_config, device, models, data_types, "vote+ViT")
+        acc = mix_acc(1, data_config, device, models, data_types, "rank_vote")
         print(acc)
 
- 
+def prune_model(model, prune_threshold):
+    num_weights_before = 0
+    for name, module in model.named_modules():
+        if hasattr(module, 'weight') and (not getattr(module, 'weight') is None):
+            num_weights_before += float(module.weight.nelement())
+    
+    for name, module in model.named_modules():
+        if hasattr(module, 'weight') and (not getattr(module, 'weight') is None) and\
+                not ("norm" in name) and not ("bn" in name) and not ("embeddings" in name):
+            prune.l1_unstructured(module, name='weight', amount=prune_threshold)
+            prune.remove(module, 'weight')
+
+    num_weights_after = 0
+    for name, module in model.named_modules():
+        if hasattr(module, 'weight') and (not getattr(module, 'weight') is None):
+            num_weights_after += float(torch.sum(module.weight == 0))
+
+    return model, num_weights_after/num_weights_before
+
 if __name__ == "__main__":
     data_config = {}
     data_config["path"] = 'datas/data_240119.csv'
@@ -292,17 +340,18 @@ if __name__ == "__main__":
     data_config["num_moves"] = 240
 
     model_config = {}
-    model_config["model_name"] = "ResNet"
+    model_config["model_name"] = "ST"
     model_config["model_size"] = "mid"
 
     device = "cuda:1"
-    score_type = "mix_acc"
+    score_type = "compare_correct"
 
     data_types = ['Picture', 'Picture', 'Picture']
     model_names = ["ResNet", "ViT", "ST"] #abc
     states = [f'models_{data_config["num_moves"]}/ResNet1_10000.pt',
               f'models_{data_config["num_moves"]}/ViT1_10000.pt',
               f'models_{data_config["num_moves"]}/ST1_10000.pt']
+              #f'models_{data_config["num_moves"]}/BERT1_s27_30000.pt'
     models = []
     for i in range(len(model_names)):
         model_config["model_name"] = model_names[i]
@@ -310,7 +359,11 @@ if __name__ == "__main__":
         state = torch.load(states[i])
         model.load_state_dict(state)
         models.append(model)
-
+    models[0], rate = prune_model(models[0], 0.2)
+    models[1], rate = prune_model(models[1], 0.2)
+    models[2], rate = prune_model(models[2], 0.2)
+    
+    #get_data_pred(data_config, models, data_types, device)
     score_more(data_config, models, device, score_type)
    
     
