@@ -213,17 +213,12 @@ def get_data_pred(data_config, models, data_types, device):
         else:
             predl, _ = prediction(data_types[i], model, device, test_loaderP)
         predls.append(predl)
-    np.save('analyzation_data/prediction.npy', np.array(predls))
-    np.save('analyzation_data/trues.npy', trues.cpu().numpy())
+    
 
     return testDataP, testDataW, predls, trues.cpu().numpy()
 
-def mix_acc(n, data_config, device, models, data_types, smart=None):
+def mix_acc(n, data_config, predls, trues, smart=None):
     
-    #_, _, predls, trues = get_data_pred(data_config, models, data_types, device)
-    predls = np.load('analyzation_data/prediction3_30000_s8596.npy')
-    trues = np.load('analyzation_data/trues_s8596.npy')
-   
     if "prec" in smart:
         with open('analyzation_data/analyzation.yaml', 'r') as file:
             args = yaml.safe_load(file)
@@ -261,55 +256,64 @@ def mix_acc(n, data_config, device, models, data_types, smart=None):
 
     return correct/total
 
-def compare_correct(data_config, device, models, data_types):
+def compare_correct(predls, trues):
+    record1 = class_correct_moves(predls, trues, 1)
+    total = len(trues)
+    count = [len(record)/total for record in record1]
+
+    return record1, count
+
+def score_more(data_config, models, device, score_type):
 
     testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
     #predls = np.load('analyzation_data/prediction4_30000_s8596.npy')
     #trues = np.load('analyzation_data/trues4_s8596.npy')
-    record1 = class_correct_moves(predls, trues, 1)
-    total = len(trues)
-    avg_move_num= None
-    avg_liberty= None
-    avg_distance= None
-    
-    count = [len(record)/total for record in record1]
-    """
-    move_nums = [[move%data_config["num_moves"] for move in record] for record in record1]
-    avg_move_num = [sum(move_num)/len(move_num) if len(move_num) else 0 for move_num in move_nums ]
-    
-    avg_liberty = [0]*len(record1)
-    for i, record in tqdm(enumerate(record1), total=len(record1)):
-        for move in record:
-            avg_liberty[i] += check_liberty(testDataP.x, testDataP.y, move, data_config["num_moves"])
-    avg_liberty = [liberty/len(record1[i]) if len(record1[i]) else 0 for i, liberty in enumerate(avg_liberty)]
-    avg_distance = [[check_distance(trues, move) for move in record] for record in record1]
-    avg_distance = [[distance for distance in distances if not distance is None] for distances in avg_distance]
-    avg_distance = [sum(distance)/len(distance) if len(distance) else 0 for distance in avg_distance]
-    """
-    return record1, count, avg_move_num, avg_liberty, avg_distance
 
-
-def score_more(data_config, models, device, score_type):
-        
-    if score_type == "legal":
-        score, moves_score, full_score, errors = score_legal_more(
-            data_types, data_config["num_moves"], models)
-        print(f'score:{score}/{full_score}')
-        print(f'moves_score:{moves_score}/{full_score*data_config["num_moves"]}')
-        print(f'error:{errors}')
-
-    elif score_type == "compare_correct":
-        records, count, avg_move_num, avg_liberty, avg_distance = compare_correct(
-            data_config, device, models, data_types)
+    if score_type == "compare_correct":
+        records, count = compare_correct(predls, trues)
         print(count)
-        print(avg_move_num)
-        print(avg_liberty)
-        print(avg_distance)
         #print(records)
-
     elif score_type == "mix_acc":
-        acc = mix_acc(1, data_config, device, models, data_types, "rank_vote")
+        acc = mix_acc(1, data_config, predls, trues, "prob_vote")
         print(acc)
+    elif score_type == "acc+compare":
+        records, count = compare_correct(predls, trues)
+        print(count)
+        acc = mix_acc(1, data_config, predls, trues, "prob_vote")
+        print(acc)
+
+def score_more_prune(data_config, models, device, score_type):
+    batch_size = 64
+    data_config["data_type"] = "Word"
+    _, testDataW = get_datasets(data_config, train=False)
+    trues = testDataW.y.cpu().numpy()
+    data_config["data_type"] = "Picture"
+    _, testDataP = get_datasets(data_config, train=False)
+    
+    for i in range(1,10):
+        test_loaderW = DataLoader(testDataW, batch_size=batch_size, shuffle=False)
+        test_loaderP = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
+        modelsp = [prune_model(model, i/20) for model in models]
+        print(i/20)
+        predls = []
+        for i, model in enumerate(modelsp):
+            if data_types[i] == "Word":
+                predl, _ = prediction(data_types[i], model, device, test_loaderW)
+            else:
+                predl, _ = prediction(data_types[i], model, device, test_loaderP)
+            predls.append(predl)
+        if score_type == "compare_correct":
+            records, count = compare_correct(predls, trues)
+            print(f'compare:{count}')
+            #print(records)
+        elif score_type == "mix_acc":
+            acc = mix_acc(1, data_config, predls, trues, "prob_vote")
+            print(f'acc{acc}')
+        elif score_type == "acc+compare":
+            records, count = compare_correct(predls, trues)
+            print(f'compare:{count}')
+            acc = mix_acc(1, data_config, predls, trues, "prob_vote")
+            print(f'acc:{acc}')
 
 def prune_model(model, prune_threshold):
     num_weights_before = 0
@@ -319,7 +323,8 @@ def prune_model(model, prune_threshold):
     
     for name, module in model.named_modules():
         if hasattr(module, 'weight') and (not getattr(module, 'weight') is None) and\
-                not ("norm" in name) and not ("bn" in name) and not ("embeddings" in name):
+                not ("norm" in name) and not ("bn" in name) and not ("embeddings" in name)\
+                    and not ("pool" in name):
             prune.l1_unstructured(module, name='weight', amount=prune_threshold)
             prune.remove(module, 'weight')
 
@@ -327,8 +332,8 @@ def prune_model(model, prune_threshold):
     for name, module in model.named_modules():
         if hasattr(module, 'weight') and (not getattr(module, 'weight') is None):
             num_weights_after += float(torch.sum(module.weight == 0))
-
-    return model, num_weights_after/num_weights_before
+    print(num_weights_after/num_weights_before)
+    return model
 
 if __name__ == "__main__":
     data_config = {}
@@ -344,7 +349,7 @@ if __name__ == "__main__":
     model_config["model_size"] = "mid"
 
     device = "cuda:1"
-    score_type = "compare_correct"
+    score_type = "acc+compare"
 
     data_types = ['Picture', 'Picture', 'Picture']
     model_names = ["ResNet", "ViT", "ST"] #abc
@@ -359,11 +364,9 @@ if __name__ == "__main__":
         state = torch.load(states[i])
         model.load_state_dict(state)
         models.append(model)
-    models[0], rate = prune_model(models[0], 0.2)
-    models[1], rate = prune_model(models[1], 0.2)
-    models[2], rate = prune_model(models[2], 0.2)
+    
     
     #get_data_pred(data_config, models, data_types, device)
-    score_more(data_config, models, device, score_type)
+    score_more_prune(data_config, models, device, score_type)
    
     
