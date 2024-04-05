@@ -12,13 +12,13 @@ def prediction(data_type, model, device, test_loader):
     true = []
     with torch.no_grad():
         for datas in tqdm(test_loader, leave=False):
-            if data_type == "Word":
+            if data_type == "BERT":
                 x, m, y = datas
                 x = x.to(device)
                 m = m.to(device)
                 y = y.to(device)
                 pred = model(x, m)
-            elif data_type == "Picture":
+            else:
                 x, y = datas
                 x = x.to(device)
                 y = y.to(device)

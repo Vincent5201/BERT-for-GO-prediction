@@ -13,20 +13,20 @@ data_config = {}
 data_config["path"] = 'datas/data_240119.csv'
 data_config["data_size"] = 10000
 data_config["offset"] = 0
-data_config["data_type"] = "Word"
+data_config["data_type"] = "BERT"
 data_config["data_source"] = "pros"
-data_config["num_moves"] = 80
+data_config["num_moves"] = 240
 
 model_config = {}
-model_config["model_name"] = "LSTM"
+model_config["model_name"] = "BERTCNN"
 model_config["model_size"] = "mid"
 model_config["config_path"] = "models_160/p1/config.json"
 model_config["state_path"] = "models_160/p1/model.safetensors"
 
 batch_size = 64
 num_epochs = 50
-lr = 5e-4
-device = "cuda:1"
+lr = 5e-5
+device = "cuda:0"
 save = True
 random_seed = random.randint(0,100)
 print(f'rand_seed:{random_seed}')
@@ -51,8 +51,9 @@ for epoch in range(num_epochs):
         if data_config["data_type"] == "BERT":
             x, m, y = datas
             x = x.to(device)
+            m = m.to(device)
             y = y.to(device)
-            pred = model(x)
+            pred = model(x, m)
         else:
             x, y = datas
             x = x.to(device)

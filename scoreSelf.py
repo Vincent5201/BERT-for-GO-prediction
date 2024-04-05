@@ -65,24 +65,23 @@ def score_self(data_config, model, score_type, device):
         print(acc5)
         print(acc1)
 
- 
 if __name__ == "__main__":
     data_config = {}
     data_config["path"] = 'datas/data_240119.csv'
-    data_config["data_size"] = 3500
+    data_config["data_size"] = 35000
     data_config["offset"] = 0
-    data_config["data_type"] = "Picture"
+    data_config["data_type"] = "BERT"
     data_config["data_source"] = "pros"
     data_config["num_moves"] = 240
 
     model_config = {}
-    model_config["model_name"] = "ViT"
+    model_config["model_name"] = "BERT"
     model_config["model_size"] = "mid"
 
     score_type = "score_acc"
     device = "cuda:1"
    
-    state = torch.load(f'models_240/ViT1_10000.pt')
+    state = torch.load(f'models/BERT1_s59_5000.pt')
     model = get_model(model_config).to(device)
     model.load_state_dict(state)
 
