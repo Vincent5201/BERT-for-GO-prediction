@@ -1,0 +1,69 @@
+BERT:
+  small:
+    hidden_size: 64
+    num_hidden_layers: 9
+  mid:
+    hidden_size: 128
+    num_hidden_layers: 12
+  large:
+    hidden_size: 256
+    num_hidden_layers: 12
+  other:
+    hidden_size: 256
+    num_hidden_layers: 12
+
+BERTCNN:
+  small:
+    hidden_size: 64
+    num_hidden_layers: 9
+  mid:
+    hidden_size: 128
+    num_hidden_layers: 12
+  large:
+    hidden_size: 256
+    num_hidden_layers: 12
+  other:
+    hidden_size: 256
+    num_hidden_layers: 12
+
+BERTp:
+  small:
+    hidden_size: 64
+    num_hidden_layers: 9
+  mid:
+    hidden_size: 128
+    num_hidden_layers: 12
+  large:
+    hidden_size: 256
+    num_hidden_layers: 12
+  other:
+    hidden_size: 256
+    num_hidden_layers: 12
+
+ResNet:
+  small:
+    res_channel: 64
+    layers: 14
+  mid:
+    res_channel: 128
+    layers: 14
+  large:
+    res_channel: 256
+    layers: 11
+  other:
+    res_channel: 256
+    layers: 11
+
+LSTM: 
+  small:
+    res_channel: 512
+    layers: 512
+  mid:
+    res_channel: 512
+    layers: 512
+  large:
+    res_channel: 512
+    layers: 512
+  other:
+    res_channel: 512
+    layers: 512
