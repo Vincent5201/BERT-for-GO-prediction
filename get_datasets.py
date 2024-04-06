@@ -69,8 +69,6 @@ class BERTDataset(Dataset):
                 gamesall[i][:last] = sort_alternate(gamesall[i][:last])
         print("data finish")
         
-        gamesall = np.insert(gamesall, 0, 363, axis=1)
-
         self.x = torch.tensor(gamesall).long()
         self.y = (torch.tensor(y)).long()
         self.mask = (self.x != 0).detach().long()
@@ -131,18 +129,15 @@ class BERTPretrainDataset(Dataset):
             games_0 = games[~mask]
             games_a, games_b = np.hsplit(games_1, [half])
             games_1 = np.concatenate((np.insert(games_b, half, 362, axis=1), np.insert(games_a, length-half, 362, axis=1)), axis=1)
-
             games_0 = np.insert(games_0, half, 362, axis=1)
             games_0 = np.insert(games_0, length+1, 362, axis=1)
-
-            games = np.insert(np.concatenate((games_1, games_0), axis=0), 0, 363, axis=1)
             next_sentence_labels = np.concatenate((torch.ones([games_1.shape[0]]), torch.zeros([games_0.shape[0]])), axis=0)
 
             # 15% mask data
             labels = copy.deepcopy(games)
-            mask = (torch.rand(games.shape) < 0.15) * (games != 0) * (games != 362) * (games != 363)
+            mask = (torch.rand(games.shape) < 0.15) * (games != 0) * (games != 362)
             for i in range(games.shape[0]):
-                games[i, torch.flatten(mask[i].nonzero()).tolist()] = 364
+                games[i, torch.flatten(mask[i].nonzero()).tolist()] = 363
 
             token_type = np.concatenate((torch.zeros([games.shape[0], half+2]), torch.ones([games.shape[0], num_moves+1-half])), axis=1)
             return games, labels, token_type, next_sentence_labels

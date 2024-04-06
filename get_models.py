@@ -107,7 +107,7 @@ def get_model(model_config):
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]
         config.num_hidden_layers = args["num_hidden_layers"]
-        config.vocab_size = 364
+        config.vocab_size = 363
         config.num_attention_heads = 1
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
@@ -116,7 +116,7 @@ def get_model(model_config):
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]
         config.num_hidden_layers = args["num_hidden_layers"]
-        config.vocab_size = 365
+        config.vocab_size = 364
         config.num_attention_heads = 1
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
@@ -144,7 +144,7 @@ def get_model(model_config):
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]
         config.num_hidden_layers = args["num_hidden_layers"]
-        config.vocab_size = 365
+        config.vocab_size = 364
         config.num_attention_heads = 1
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
@@ -164,7 +164,7 @@ def get_model(model_config):
         config.num_hidden_layers = args["num_hidden_layers"]
         config.embedding_size  = args["embedding_size"]
 
-        config.vocab_size = 364
+        config.vocab_size = 363
         config.num_attention_heads = 1
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"

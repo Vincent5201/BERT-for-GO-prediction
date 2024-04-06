@@ -38,7 +38,7 @@ def prediction(data_type, model, device, test_loader):
 def next_moves(data_type, num_moves, model, games, num, device):
     games = [[transfer(step) for step in game] for game in games]
 
-    if data_type == 'Word':
+    if data_type == 'BERT':
         last = 0
         while(last < len(games[0])):
             games[0][last] += 1
@@ -46,7 +46,6 @@ def next_moves(data_type, num_moves, model, games, num, device):
         games[0].append(362)
         while(len(games[0]) < num_moves):
             games[0].append(0)
-        games = np.insert(games, 0, 363, axis=1)
         x = torch.tensor(games).to(device)
         mask = (x != 0).detach().long().to(device)
         model.eval()
@@ -89,7 +88,7 @@ if __name__ == "__main__":
 
     data_config = {}
     data_config["path"] = 'datas/data_240119.csv'
-    data_config["data_size"] = 30000
+    data_config["data_size"] = 35000
     data_config["offset"] = 0
     data_config["data_type"] = "Word"
     data_config["data_source"] = "pros"
