@@ -80,42 +80,6 @@ class BERTDataset(Dataset):
     def __len__(self):
         return self.n_samples
     
-class WordDataset(Dataset):
-    # data loading
-    def __init__(self, games, num_moves, sort=False, shuffle=False):
-        if shuffle:
-            games = shuffle_pos(games)
-        gamesall = []
-        for game in tqdm(games, total = len(games), leave=False):
-            result = stepbystep(game)
-            gamesall.append(result)
-        gamesall = np.array(gamesall)
-        gamesall = gamesall.reshape(gamesall.shape[0]*gamesall.shape[1],gamesall.shape[2]) 
-        print("steps finish")
-
-        total_steps = gamesall.shape[0]
-        y = [0]*(total_steps)
-        for i in tqdm(range(total_steps), total=total_steps, leave=False):
-            last = 0
-            while(last < num_moves and gamesall[i][last]):
-                last += 1
-            last -= 1
-            y[i] = gamesall[i][last]-1
-            gamesall[i][last] = 0
-            if sort:
-                gamesall[i][:last] = sort_alternate(gamesall[i][:last])
-        print("data finish")
-        
-        self.x = torch.tensor(gamesall).long()
-        self.y = (torch.tensor(y)).long()
-        self.n_samples = len(self.y)
-        
-    def __getitem__(self, index):  
-        return self.x[index], self.y[index]
-
-    def __len__(self):
-        return self.n_samples
-
 class BERTPretrainDataset(Dataset):
     # data loading
     def __init__(self, games, num_moves):
@@ -199,11 +163,8 @@ def get_datasets(data_config, split_rate=0.1, be_top_left=False, train=True):
     split = int(len(games) * split_rate)
     train_dataset = None
     eval_dataset = None
+
     if data_config["data_type"] == 'Word':
-        if train:
-            train_dataset = WordDataset(games[split:],  data_config["num_moves"])
-        eval_dataset = WordDataset(games[:split],  data_config["num_moves"])
-    elif data_config["data_type"] == 'BERT':
         if train:
             train_dataset = BERTDataset(games[split:],  data_config["num_moves"])
         eval_dataset = BERTDataset(games[:split],  data_config["num_moves"])
