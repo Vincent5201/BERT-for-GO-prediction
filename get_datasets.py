@@ -110,11 +110,10 @@ class WordDataset(Dataset):
         
         self.x = torch.tensor(gamesall).long()
         self.y = (torch.tensor(y)).long()
-        self.mask = (self.x != 0).detach().long()
         self.n_samples = len(self.y)
         
     def __getitem__(self, index):  
-        return self.x[index], self.mask[index], self.y[index]
+        return self.x[index], self.y[index]
 
     def __len__(self):
         return self.n_samples
