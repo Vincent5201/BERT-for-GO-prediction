@@ -12,20 +12,6 @@ BERT:
     hidden_size: 256
     num_hidden_layers: 12
 
-BERTCNN:
-  small:
-    hidden_size: 64
-    num_hidden_layers: 9
-  mid:
-    hidden_size: 128
-    num_hidden_layers: 12
-  large:
-    hidden_size: 256
-    num_hidden_layers: 12
-  other:
-    hidden_size: 256
-    num_hidden_layers: 12
-
 BERTp:
   small:
     hidden_size: 64
@@ -56,14 +42,32 @@ ResNet:
 
 LSTM: 
   small:
-    res_channel: 512
-    layers: 512
+    hidden_size: 128
+    embbed_size: 128
   mid:
-    res_channel: 512
-    layers: 512
+    hidden_size: 256
+    embbed_size: 128
   large:
-    res_channel: 512
-    layers: 512
+    hidden_size: 512
+    embbed_size: 512
   other:
-    res_channel: 512
-    layers: 512
+    hidden_size: 512
+    embbed_size: 512
+  
+ALBERT:
+  small:
+    embedding_size: 32
+    hidden_size: 64
+    num_hidden_layers: 9
+  mid:
+    embedding_size: 64
+    hidden_size: 128
+    num_hidden_layers: 12
+  large:
+    embedding_size: 128
+    hidden_size: 256
+    num_hidden_layers: 12
+  other:
+    embedding_size: 128
+    hidden_size: 256
+    num_hidden_layers: 12

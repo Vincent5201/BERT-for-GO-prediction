@@ -1,4 +1,4 @@
-from transformers import BertModel, BertConfig, BertForPreTraining
+from transformers import BertModel, BertConfig, BertForPreTraining, AlbertConfig, AlbertModel
 import torch.nn as nn
 import torch
 import yaml
@@ -21,30 +21,27 @@ class Bert_Go(nn.Module):
         logits = self.linear2(logits)
         return logits
     
-class BertCNN_Go(nn.Module):
+class AlBert_Go(nn.Module):
     def __init__(self, config, num_labels, p_model = None):
-        super(BertCNN_Go, self).__init__()
+        super(AlBert_Go, self).__init__()
         if p_model:
             self.bert = p_model
         else:
-            self.bert = BertModel(config)
-        self.conv1d = nn.Conv1d(in_channels=config.hidden_size, 
-                                out_channels=config.hidden_size, kernel_size=7)
+            self.bert = AlbertModel(config)
         self.linear1 = nn.Linear(config.hidden_size, 512)
         self.linear2 = nn.Linear(512, num_labels)
     def forward(self, x, m):
-        outputs = self.bert(input_ids=x, attention_mask=m)["last_hidden_state"]
-        outputs = self.conv1d(outputs.permute(0, 2, 1)).permute(0, 2, 1)
-        outputs = torch.mean(outputs, dim=1)
-        outputs = self.linear1(outputs)
-        outputs = self.linear2(outputs)
-        return outputs
+        output = self.bert(input_ids=x, attention_mask=m)["last_hidden_state"]
+        logits = torch.mean(output, dim=1)
+        logits = self.linear1(logits)
+        logits = self.linear2(logits)
+        return logits
 
 class LSTM(nn.Module):
     def __init__(self, num_embeddings, hidden, embed_size):
         super(LSTM, self).__init__()
         self.embed = nn.Embedding(num_embeddings=num_embeddings, embedding_dim=embed_size)
-        self.lstm1 = nn.LSTM(input_size=embed_size,hidden_size=hidden,num_layers=4, dropout=0.1, bidirectional=True)
+        self.lstm1 = nn.LSTM(input_size=embed_size,hidden_size=hidden,num_layers=3, dropout=0.1, bidirectional=True)
         self.linear1 = nn.Linear(int(hidden*2),512)
         self.linear2 = nn.Linear(512,361)
         self.relu = nn.ReLU()
@@ -124,15 +121,6 @@ def get_model(model_config):
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
         model = Bert_Go(config, 361)
-    elif model_config["model_name"] == "BERTCNN":
-        config = BertConfig() 
-        config.hidden_size = args["hidden_size"]
-        config.num_hidden_layers = args["num_hidden_layers"]
-        config.vocab_size = 364
-        config.num_attention_heads = 1
-        config.intermediate_size = config.hidden_size*4
-        config.position_embedding_type = "relative_key"
-        model = BertCNN_Go(config, 361)
     elif model_config["model_name"] == "BERTxpretrained":
         tensors = {}
         with safe_open(model_config["state_path"], framework="pt") as f:
@@ -169,12 +157,23 @@ def get_model(model_config):
     elif model_config["model_name"] == "LSTM":
         hidden_size = args["hidden_size"]
         embbed_size = args["embbed_size"]
-        model = LSTM(361, hidden_size, embbed_size)
+        model = LSTM(362, hidden_size, embbed_size)
+    elif model_config["model_name"] == 'ALBERT':
+        config = AlbertConfig() 
+        config.hidden_size = args["hidden_size"]
+        config.num_hidden_layers = args["num_hidden_layers"]
+        config.embedding_size  = args["embedding_size"]
+
+        config.vocab_size = 364
+        config.num_attention_heads = 1
+        config.intermediate_size = config.hidden_size*4
+        config.position_embedding_type = "relative_key"
+        model = Bert_Go(config, 361)
     return model
 
 if __name__ == "__main__":
     model_config = {}
-    model_config["model_name"] = "ResNet"
+    model_config["model_name"] = "LSTM"
     model_config["model_size"] = "mid"
     model = get_model(model_config)
     total_params = sum(p.numel() for p in model.parameters())
