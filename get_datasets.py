@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import copy
-import random
 import torch
 from tqdm import tqdm
 from torch.utils.data import Dataset
@@ -91,10 +90,18 @@ class BERTPretrainDataset(Dataset):
             mask = torch.rand([games.shape[0]]) < 0.5
             games_1 = games[mask]
             games_0 = games[~mask]
-            games_a, games_b = np.hsplit(games_1, [half])
-            games_1 = np.concatenate((np.insert(games_b, half, 362, axis=1), np.insert(games_a, length-half, 362, axis=1)), axis=1)
             games_0 = np.insert(games_0, half, 362, axis=1)
+            games_1 = np.insert(games_1, half, 362, axis=1)
             games_0 = np.insert(games_0, length+1, 362, axis=1)
+            games_1 = np.insert(games_1, length+1, 362, axis=1)
+            a = 0
+            b = half+1
+            for g, game in enumerate(games_1):
+                while(game[a] != 362 and game[b] != 362):
+                    games_1[g][a], games_1[g][b] = game[b], game[a]
+                    a += 1
+                    b += 1
+            games = np.concatenate((torch.tensor(games_1), torch.tensor(games_0)), axis=0)
             next_sentence_labels = np.concatenate((torch.ones([games_1.shape[0]]), torch.zeros([games_0.shape[0]])), axis=0)
 
             # 15% mask data
@@ -103,7 +110,7 @@ class BERTPretrainDataset(Dataset):
             for i in range(games.shape[0]):
                 games[i, torch.flatten(mask[i].nonzero()).tolist()] = 363
 
-            token_type = np.concatenate((torch.zeros([games.shape[0], half+2]), torch.ones([games.shape[0], num_moves+1-half])), axis=1)
+            token_type = np.concatenate((torch.zeros([games.shape[0], half+1]), torch.ones([games.shape[0], num_moves+1-half])), axis=1)
             return games, labels, token_type, next_sentence_labels
 
         games_record = np.zeros([len(games),num_moves])
@@ -124,11 +131,11 @@ class BERTPretrainDataset(Dataset):
             labels.append(label_tmp)
             token_types.append(token_type_tmp)
             next_sentence_labels.append(next_sentence_labels_tmp)
-      
-        gamesall = np.array(gamesall).reshape((num_moves-1)*len(games), num_moves+3)
-        labels = np.array(labels).reshape((num_moves-1)*len(games), num_moves+3)
-        token_types = np.array(token_types).reshape((num_moves-1)*len(games), num_moves+3)
-        next_sentence_labels = np.array(next_sentence_labels).reshape((num_moves-1)*len(games))
+        total = gamesall[0].shape[0]
+        gamesall = np.array(gamesall).reshape(total*(num_moves-1), num_moves+2)
+        labels = np.array(labels).reshape(total*(num_moves-1), num_moves+2)
+        token_types = np.array(token_types).reshape(total*(num_moves-1), num_moves+2)
+        next_sentence_labels = np.array(next_sentence_labels).reshape(total*(num_moves-1))
 
         self.x = torch.tensor(gamesall).long()
         self.y = torch.tensor(labels).long()

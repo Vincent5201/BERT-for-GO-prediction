@@ -2,10 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
-import copy
-import math
 import random
-import yaml
 
 from use import prediction
 from get_datasets import get_datasets

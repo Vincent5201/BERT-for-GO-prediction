@@ -11,14 +11,14 @@ from tools import myaccn
 
 data_config = {}
 data_config["path"] = 'datas/data_240119.csv'
-data_config["data_size"] = 10000
+data_config["data_size"] = 30000
 data_config["offset"] = 0
-data_config["data_type"] = "BERT"
+data_config["data_type"] = "Word"
 data_config["data_source"] = "pros"
-data_config["num_moves"] = 240
+data_config["num_moves"] = 80
 
 model_config = {}
-model_config["model_name"] = "BERTCNN"
+model_config["model_name"] = "BERT"
 model_config["model_size"] = "mid"
 model_config["config_path"] = "models_160/p1/config.json"
 model_config["state_path"] = "models_160/p1/model.safetensors"
@@ -26,7 +26,7 @@ model_config["state_path"] = "models_160/p1/model.safetensors"
 batch_size = 64
 num_epochs = 50
 lr = 5e-5
-device = "cuda:0"
+device = "cuda:1"
 save = True
 random_seed = random.randint(0,100)
 print(f'rand_seed:{random_seed}')
@@ -37,6 +37,7 @@ torch.cuda.manual_seed_all(random_seed)
 model = get_model(model_config).to(device)
 
 trainData, testData = get_datasets(data_config)
+print(trainData.x[50])
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 loss_fct = nn.CrossEntropyLoss()
 
@@ -48,7 +49,7 @@ for epoch in range(num_epochs):
     losses = []
     for datas in tqdm(train_loader, leave=False):
         optimizer.zero_grad()
-        if data_config["data_type"] == "BERT":
+        if data_config["data_type"] == "Word":
             x, m, y = datas
             x = x.to(device)
             m = m.to(device)
@@ -95,4 +96,4 @@ for epoch in range(num_epochs):
     print(f'accuracy5:{myaccn(predl,true, 5)}')
     print(f'accuracy:{accuracy_score(preds,true)}')
     if save:
-        torch.save(model.state_dict(), f'/home/F74106165/Transformer_Go/tmpmodels/model{epoch+1}.pt')
+        torch.save(model.state_dict(), f'/home/F74106165/Language_Go/tmpmodels/model{epoch+1}.pt')

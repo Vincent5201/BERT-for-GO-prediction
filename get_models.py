@@ -1,4 +1,4 @@
-from transformers import BertModel, BertConfig, BertForPreTraining, AlbertConfig, AlbertModel
+from transformers import BertModel, BertConfig, BertForPreTraining
 import torch.nn as nn
 import torch
 import yaml
@@ -20,40 +20,6 @@ class Bert_Go(nn.Module):
         logits = self.linear1(logits)
         logits = self.linear2(logits)
         return logits
-    
-class AlBert_Go(nn.Module):
-    def __init__(self, config, num_labels, p_model = None):
-        super(AlBert_Go, self).__init__()
-        if p_model:
-            self.bert = p_model
-        else:
-            self.bert = AlbertModel(config)
-        self.linear1 = nn.Linear(config.hidden_size, 512)
-        self.linear2 = nn.Linear(512, num_labels)
-    def forward(self, x, m):
-        output = self.bert(input_ids=x, attention_mask=m)["last_hidden_state"]
-        logits = torch.mean(output, dim=1)
-        logits = self.linear1(logits)
-        logits = self.linear2(logits)
-        return logits
-
-class LSTM(nn.Module):
-    def __init__(self, num_embeddings, hidden, embed_size):
-        super(LSTM, self).__init__()
-        self.embed = nn.Embedding(num_embeddings=num_embeddings, embedding_dim=embed_size)
-        self.lstm1 = nn.LSTM(input_size=embed_size,hidden_size=hidden,num_layers=3, dropout=0.1, bidirectional=True)
-        self.linear1 = nn.Linear(int(hidden*2),512)
-        self.linear2 = nn.Linear(512,361)
-        self.relu = nn.ReLU()
-        self.pool = nn.AdaptiveMaxPool1d(output_size=1)
-    def forward(self, x):
-        x = self.embed(x)
-        x, _ = self.lstm1(x)
-        x = self.pool(torch.transpose(x,1,2)).squeeze()
-        x = self.linear1(x)
-        x = self.relu(x)
-        x = self.linear2(x)
-        return x
 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernal_size):
@@ -140,7 +106,7 @@ def get_model(model_config):
         pretrained_model.load_state_dict(tensors)
         model = Bert_Go(config, 361, pretrained_model)
     elif model_config["model_name"] == 'pretrainxBERT':
-        args = args[model_config["model_name"]][model_config["model_size"]]
+        args = args["BERT"][model_config["model_size"]]
         config = BertConfig() 
         config.hidden_size = args["hidden_size"]
         config.num_hidden_layers = args["num_hidden_layers"]
@@ -154,27 +120,13 @@ def get_model(model_config):
         layers = args["layers"]
         in_channel = 16
         model = myResNet(in_channel, res_channel, layers)
-    elif model_config["model_name"] == "LSTM":
-        hidden_size = args["hidden_size"]
-        embbed_size = args["embbed_size"]
-        model = LSTM(362, hidden_size, embbed_size)
-    elif model_config["model_name"] == 'ALBERT':
-        config = AlbertConfig() 
-        config.hidden_size = args["hidden_size"]
-        config.num_hidden_layers = args["num_hidden_layers"]
-        config.embedding_size  = args["embedding_size"]
-
-        config.vocab_size = 363
-        config.num_attention_heads = 1
-        config.intermediate_size = config.hidden_size*4
-        config.position_embedding_type = "relative_key"
-        model = Bert_Go(config, 361)
     return model
 
 if __name__ == "__main__":
     model_config = {}
-    model_config["model_name"] = "LSTM"
+    model_config["model_name"] = "ALBERT"
     model_config["model_size"] = "mid"
     model = get_model(model_config)
+    print(model)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total Parameters: {total_params}")
