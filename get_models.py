@@ -63,6 +63,34 @@ class myResNet(nn.Module):
         pol = self.policy_fc(torch.flatten(pol, start_dim=1))
         return pol
 
+class BertCNN_Go(nn.Module):
+    def __init__(self, config, num_labels, p_model = None):
+        super(BertCNN_Go, self).__init__()
+        if p_model:
+            self.bert = p_model
+        else:
+            self.bert = BertModel(config)
+
+        self.convs = nn.ModuleList([
+            nn.Conv2d(in_channels=4, out_channels=32, kernel_size=(fs, config.hidden_size)) 
+            for fs in range(2, 8)
+        ])
+        self.pool = nn.AdaptiveMaxPool1d(output_size=1)
+        self.linear1 = nn.Linear(6 * 32, 512)
+        self.linear2 = nn.Linear(512, num_labels)
+    
+    def forward(self, x, m):
+        outputs = self.bert(input_ids=x, attention_mask=m, output_hidden_states=True)["hidden_states"]
+        concat = torch.transpose(torch.cat(tuple([t.unsqueeze(0) for t in outputs[-4:]]), 0), 0, 1)
+        convs = [F.relu(conv(concat)).squeeze(3) for conv in self.convs]
+        pooleds = [self.pool(conv) for conv in convs]
+        pooled_concat = torch.cat(pooleds, dim=2)       
+        logits = pooled_concat.view(pooled_concat.size(0), -1)
+        logits = self.linear1(logits)
+        logits = self.linear2(logits)
+        return logits
+
+
 def get_model(model_config):
     with open('modelArgs.yaml', 'r') as file:
         args = yaml.safe_load(file)
@@ -101,7 +129,7 @@ def get_model(model_config):
                             "cls.predictions.transform.dense.bias", "cls.predictions.transform.dense.weight", "cls.seq_relationship.bias", "cls.seq_relationship.weight"]
         for key in keys_to_delete:
             del tensors[key]
-        config = BertConfig.from_json_file(model_config["cnofig_path"])
+        config = BertConfig.from_json_file(model_config["config_path"])
         pretrained_model = BertModel(config)
         pretrained_model.load_state_dict(tensors)
         model = Bert_Go(config, 361, pretrained_model)
@@ -120,13 +148,22 @@ def get_model(model_config):
         layers = args["layers"]
         in_channel = 16
         model = myResNet(in_channel, res_channel, layers)
+    elif model_config["model_name"] == 'BERTCNN':
+        config = BertConfig() 
+        config.hidden_size = args["hidden_size"]
+        config.num_hidden_layers = args["num_hidden_layers"]
+        config.vocab_size = 363
+        config.num_attention_heads = 1
+        config.intermediate_size = config.hidden_size*4
+        config.position_embedding_type = "relative_key"
+        model = BertCNN_Go(config, 361)
+    
     return model
 
 if __name__ == "__main__":
     model_config = {}
-    model_config["model_name"] = "ALBERT"
+    model_config["model_name"] = "BERTCNN"
     model_config["model_size"] = "mid"
     model = get_model(model_config)
-    print(model)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total Parameters: {total_params}")
