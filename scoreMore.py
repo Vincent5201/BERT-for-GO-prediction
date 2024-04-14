@@ -185,7 +185,7 @@ def score_more(data_config, models, device, score_type):
     elif score_type == "acc+compare":
         records, count = compare_correct(predls, trues, 5)
         print(count)
-        acc = mix_acc(5, data_config, predls, trues, "prob_vote")
+        acc = mix_acc(5, predls, trues, "prob_vote")
         print(acc)
         
 
