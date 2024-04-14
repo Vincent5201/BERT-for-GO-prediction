@@ -15,8 +15,8 @@ def cosine_similarity(vec1, vec2):
         similarity = 0
     return similarity
 
-def embedding_distance(data_config, model_config):
-    if data_config["data_type"] != "BERT":
+def embedding_distance(data_config, model_config, model_path):
+    if data_config["data_type"] != "Word":
         print("wrong data type")
         return
     _, testData = get_datasets(data_config, 1, train=False)
@@ -24,7 +24,7 @@ def embedding_distance(data_config, model_config):
                           for i in range(int(len(testData.x)/data_config["num_moves"]))])
     print(games.shape)
     model = get_model(model_config)
-    state = torch.load(f'models_{data_config["num_moves"]}/BERT1_30000.pt')
+    state = torch.load(model_path)
     model.load_state_dict(state)
 
     mat = np.zeros((361,361))
@@ -48,13 +48,14 @@ def embedding_distance(data_config, model_config):
         for j in range(361):
             if count[i][j]:
                 mat[i][j] /= count[i][j]
-    np.save('analyzation_data/dis.npy', mat)
+    np.save('analyzation_data/cos_simi_tmp.npy', mat)
 
     return mat
 
 def data_similarity(data_config):
     _, testData = get_datasets(data_config, 1, train=False)
-    games = torch.stack([testData.x[80*i+79] for i in range(int(len(testData.x)/80))]).cpu().numpy()
+    games = torch.stack([testData.x[data_config["num_moves"]*i+data_config["num_moves"]-1]\
+                        for i in range(int(len(testData.x)/data_config["num_moves"]))]).cpu().numpy()
     print(games.shape)
     counts = [0]*(data_config["num_moves"]+1)
     records = np.zeros((len(games), 361))
@@ -145,9 +146,9 @@ if __name__ == "__main__":
     model_config["state_path"] = "models_160/p1/model.safetensors"
 
     device = "cuda:1"
-   
+    model_path = f'models/BERT/mid_s2_7500x4.pt'
     #data_similarity(data_config)
-    #mats = embedding_distance(data_config, model_config)
+    mats = embedding_distance(data_config, model_config, model_path)
 
 
 

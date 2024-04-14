@@ -2,7 +2,10 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
+import copy
+import math
 import random
+import yaml
 
 from use import prediction
 from get_datasets import get_datasets
@@ -130,15 +133,15 @@ def get_data_pred(data_config, models, data_types, device):
 
     return testDataP, testDataW, predls, trues.cpu().numpy()
 
-def mix_acc(n, data_config, predls, trues, smart=None):
+def mix_acc(n, predls, trues, smart=None):
     total = len(trues)
     correct = 0
     for i in tqdm(range(total), total=total, leave=False):
         sorted_indices = []
         sorted_p = []
         for _, predl in enumerate(predls):
-            sorted_indices.append((-predl[i]).argsort()[:5]) 
-            sorted_p.append(np.sort(predl[i])[::-1][:5])
+            sorted_indices.append((-predl[i]).argsort()[:10]) 
+            sorted_p.append(np.sort(predl[i])[::-1][:10])
         
         choices = []
         if smart == "prob_vote":
@@ -157,8 +160,8 @@ def mix_acc(n, data_config, predls, trues, smart=None):
 
     return correct/total
 
-def compare_correct(predls, trues):
-    record1 = class_correct_moves(predls, trues, 1)
+def compare_correct(predls, trues, n):
+    record1 = class_correct_moves(predls, trues, n)
     total = len(trues)
     count = [len(record)/total for record in record1]
 
@@ -180,12 +183,11 @@ def score_more(data_config, models, device, score_type):
         acc = mix_acc(1, data_config, predls, trues, "prob_rank_vote")
         print(acc)
     elif score_type == "acc+compare":
-        records, count = compare_correct(predls, trues)
+        records, count = compare_correct(predls, trues, 5)
         print(count)
-        acc = mix_acc(1, data_config, predls, trues, "prob_vote")
+        acc = mix_acc(5, data_config, predls, trues, "prob_vote")
         print(acc)
-        acc = mix_acc(1, data_config, predls, trues, "prob_rank_vote")
-        print(acc)
+        
 
 
 if __name__ == "__main__":
@@ -196,20 +198,19 @@ if __name__ == "__main__":
     data_config["data_type"] = "Picture"
     data_config["data_source"] = "pros"
     data_config["num_moves"] = 240
+    data_config["extend"] = False
 
     model_config = {}
     model_config["model_name"] = "ST"
     model_config["model_size"] = "mid"
 
-    device = "cuda:1"
-    score_type = "mix_acc"
+    device = "cuda:0"
+    score_type = "acc+compare"
 
-    data_types = ['Picture', 'Picture', 'Picture']
-    model_names = ["ResNet", "ViT", "ST"] #abc
-    states = [f'models_{data_config["num_moves"]}/ResNet1_10000.pt',
-              f'models_{data_config["num_moves"]}/ViT1_10000.pt',
-              f'models_{data_config["num_moves"]}/ST1_10000.pt']
-              #f'models_{data_config["num_moves"]}/BERT1_s27_30000.pt'
+    data_types = ['Picture', 'Word']
+    model_names = ["ResNet", "BERTp"] #abc
+    states = [f'models/ResNet/mid_5000.pt',
+              f'models/BERT/mid_s27_30000.pt']
     models = []
     for i in range(len(model_names)):
         model_config["model_name"] = model_names[i]
@@ -218,7 +219,7 @@ if __name__ == "__main__":
         model.load_state_dict(state)
         models.append(model)
 
-    get_data_pred(data_config, models, data_types, device)
-
+    #get_data_pred(data_config, models, data_types, device)
+    score_more(data_config, models, device, score_type)
    
     
