@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import copy
+import random
 import torch
 from tqdm import tqdm
 from torch.utils.data import Dataset
@@ -9,7 +10,7 @@ from tools import *
 
 class PicturesDataset(Dataset):
     # data loading
-    def __init__(self,games):
+    def __init__(self, games):
         total_moves = 0
         for game in games:
             total_moves += len(game)
@@ -59,7 +60,7 @@ class BERTDataset(Dataset):
         y = [0]*(total_steps)
         for i in tqdm(range(total_steps), total=total_steps, leave=False):
             last = 0
-            while(last < num_moves and gamesall[i][last]):
+            while last < num_moves and gamesall[i][last]:
                 last += 1
             last -= 1
             y[i] = gamesall[i][last]-1
@@ -163,10 +164,12 @@ def get_datasets(data_config, split_rate=0.1, be_top_left=False, train=True):
 
     games = [[transfer(step) for step in game[:data_config["num_moves"]]] for game in games]
     print("transfer finish")
-   
+    if data_config["extend"]:
+        games = extend(games)
+        print("extended")
     if be_top_left:
         games = top_left(games)
-
+        print("top_left")
     split = int(len(games) * split_rate)
     train_dataset = None
     eval_dataset = None
