@@ -113,23 +113,16 @@ def get_data_pred(data_config, models, data_types, device):
 
     return testDataP, testDataW, predls, trues.cpu().numpy()
 
-def mix_acc(n, predls, trues, smart=None, board=None):
+def mix_acc(n, predls, trues, smart=None):
     total = len(trues)
     correct = 0
     for i in tqdm(range(total), total=total, leave=False):
         sorted_indices = []
         sorted_p = []
         for _, predl in enumerate(predls):
-            tmp_idx = (-predl[i]).argsort()[:max(3*n,5)]
-            tmp_p = np.sort(predl[i])[::-1][:max(3*n,5)]
-            if not board is None:
-                tmp_p = [p for idx, p in zip(tmp_idx, tmp_p)\
-                            if board[i][2][int(idx/19)][int(idx%19)]][:max(3*n,5)]
-                tmp_idx = [idx for idx in tmp_idx\
-                                if board[i][2][int(idx/19)][int(idx%19)]][:max(3*n,5)]
-            sorted_indices.append(tmp_idx) 
-            sorted_p.append(tmp_p)
-    
+            sorted_indices.append((-predl[i]).argsort()[:10]) 
+            sorted_p.append(np.sort(predl[i])[::-1][:10])
+        
         choices = []
         if smart == "prob_vote":
             choices = prob_vote(sorted_indices, sorted_p)
@@ -177,9 +170,9 @@ def score_more(data_config, models, device, score_type):
         print(count)
         #print(records)
     elif score_type == "mix_acc":
-        acc = mix_acc(1, predls, trues, "rank_vote")
+        acc = mix_acc(1, data_config, predls, trues, "rank_vote")
         print(acc)
-        acc = mix_acc(1, predls, trues, "prob_rank_vote")
+        acc = mix_acc(1, data_config, predls, trues, "prob_rank_vote")
         print(acc)
     elif score_type == "acc+compare":
         records, count = compare_correct(predls, trues, 5)
@@ -189,9 +182,6 @@ def score_more(data_config, models, device, score_type):
     elif score_type == "invalid":
         invalid = invalid_rate(testDataP.x, predls, 10)
         print(invalid)
-    elif score_type == "mix_acc_valid":
-        acc = mix_acc(1, predls, trues, "prob_vote", testDataP.x)
-        print(acc)
         
 if __name__ == "__main__":
     data_config = {}
@@ -208,12 +198,13 @@ if __name__ == "__main__":
     model_config["model_size"] = "mid"
 
     device = "cuda:0"
-    score_type = "mix_acc_valid"
+    score_type = "invalid"
 
-    data_types = ['Picture', 'Word']
-    model_names = ["ResNet", "BERTp"] #abc
+    data_types = ['Picture', 'Word', 'Word']
+    model_names = ["ResNet", "BERTp", "BERT"] #abc
     states = [f'models/ResNet/mid_5000.pt',
-              f'models/BERT/mid_s27_30000.pt']
+              f'models/BERT/mid_s27_30000.pt',
+              f'models/BERT/mid_s2_7500x4.pt']
     models = []
     for i in range(len(model_names)):
         model_config["model_name"] = model_names[i]
