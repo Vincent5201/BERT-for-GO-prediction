@@ -2,10 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
-import copy
-import math
 import random
-import yaml
 
 from use import prediction
 from get_datasets import get_datasets
@@ -22,27 +19,10 @@ def class_correct_moves(predls, true, n):
             pos *= 2
             sorted_indices = (-(predls[i][j])).argsort()
             top_k_indices = sorted_indices[:n]  
-    
             if true[j] in top_k_indices:
                 pos += 1
         records[pos].append(j)
     return records
-
-def vote_model(sorted_indices, choose):
-    top_choices = [p[0] for p in sorted_indices]
-    if len(top_choices) == len(set(top_choices)):
-        choices = [top_choices[choose]]
-    else:
-        if len(set(top_choices)) == 1:
-            choices = [top_choices[0]]
-        else:
-            if top_choices[0] == top_choices[1]:
-                choices = [top_choices[0]]
-            elif top_choices[0] == top_choices[2]:
-                choices = [top_choices[0]]
-            else:
-                choices = [top_choices[1]]
-    return choices
 
 def prob_vote(sorted_indices, sorted_p):
     vote = {}
@@ -133,21 +113,26 @@ def get_data_pred(data_config, models, data_types, device):
 
     return testDataP, testDataW, predls, trues.cpu().numpy()
 
-def mix_acc(n, predls, trues, smart=None):
+def mix_acc(n, predls, trues, smart=None, board=None):
     total = len(trues)
     correct = 0
     for i in tqdm(range(total), total=total, leave=False):
         sorted_indices = []
         sorted_p = []
         for _, predl in enumerate(predls):
-            sorted_indices.append((-predl[i]).argsort()[:10]) 
-            sorted_p.append(np.sort(predl[i])[::-1][:10])
-        
+            tmp_idx = (-predl[i]).argsort()[:max(3*n,5)]
+            tmp_p = np.sort(predl[i])[::-1][:max(3*n,5)]
+            if not board is None:
+                tmp_p = [p for idx, p in zip(tmp_idx, tmp_p)\
+                            if board[i][2][int(idx/19)][int(idx%19)]][:max(3*n,5)]
+                tmp_idx = [idx for idx in tmp_idx\
+                                if board[i][2][int(idx/19)][int(idx%19)]][:max(3*n,5)]
+            sorted_indices.append(tmp_idx) 
+            sorted_p.append(tmp_p)
+    
         choices = []
         if smart == "prob_vote":
             choices = prob_vote(sorted_indices, sorted_p)
-        elif smart == "vote+ResNet":
-            choices = vote_model(sorted_indices, 0)
         elif smart == "rank_vote":
             choices = rank_vote(sorted_indices)
         elif smart == "prob_rank_vote":
@@ -157,7 +142,6 @@ def mix_acc(n, predls, trues, smart=None):
             random.shuffle(choices)
         if trues[i] in choices[:n]:
             correct += 1
-
     return correct/total
 
 def compare_correct(predls, trues, n):
@@ -167,6 +151,21 @@ def compare_correct(predls, trues, n):
 
     return record1, count
 
+def invalid_rate(board, predls, n=1):
+    total = len(predls[0])
+    invalid = [0]*len(predls)
+    for i in tqdm(range(total), total=total, leave=False):
+        for j, predl in enumerate(predls):
+            chooses = (-predl[i]).argsort()[:n]
+            check = True
+            for c in chooses:
+                if board[i][2][int(c/19)][int(c%19)]:
+                    check = False
+                    break
+            if check:
+                invalid[j] += 1
+    return [e/total for e in invalid]
+            
 def score_more(data_config, models, device, score_type):
 
     testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
@@ -178,18 +177,22 @@ def score_more(data_config, models, device, score_type):
         print(count)
         #print(records)
     elif score_type == "mix_acc":
-        acc = mix_acc(1, data_config, predls, trues, "rank_vote")
+        acc = mix_acc(1, predls, trues, "rank_vote")
         print(acc)
-        acc = mix_acc(1, data_config, predls, trues, "prob_rank_vote")
+        acc = mix_acc(1, predls, trues, "prob_rank_vote")
         print(acc)
     elif score_type == "acc+compare":
         records, count = compare_correct(predls, trues, 5)
         print(count)
         acc = mix_acc(5, predls, trues, "prob_vote")
         print(acc)
+    elif score_type == "invalid":
+        invalid = invalid_rate(testDataP.x, predls, 10)
+        print(invalid)
+    elif score_type == "mix_acc_valid":
+        acc = mix_acc(1, predls, trues, "prob_vote", testDataP.x)
+        print(acc)
         
-
-
 if __name__ == "__main__":
     data_config = {}
     data_config["path"] = 'datas/data_240119.csv'
@@ -205,7 +208,7 @@ if __name__ == "__main__":
     model_config["model_size"] = "mid"
 
     device = "cuda:0"
-    score_type = "acc+compare"
+    score_type = "mix_acc_valid"
 
     data_types = ['Picture', 'Word']
     model_names = ["ResNet", "BERTp"] #abc
