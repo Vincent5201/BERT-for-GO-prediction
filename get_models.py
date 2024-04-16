@@ -5,6 +5,7 @@ import yaml
 import torch.nn.functional as F
 from safetensors import safe_open
 
+
 class Bert_Go(nn.Module):
     def __init__(self, config, num_labels, p_model = None):
         super(Bert_Go, self).__init__()
@@ -92,7 +93,7 @@ class BertCNN_Go(nn.Module):
 
 
 def get_model(model_config):
-    with open('modelArgs.yaml', 'r') as file:
+    with open('D:\codes\python\.vscode\Language_Go\modelArgs.yaml', 'r') as file:
         args = yaml.safe_load(file)
     if not ("x" in model_config["model_name"]):
         args = args[model_config["model_name"]][model_config["model_size"]]
@@ -162,7 +163,7 @@ def get_model(model_config):
 
 if __name__ == "__main__":
     model_config = {}
-    model_config["model_name"] = "BERTCNN"
+    model_config["model_name"] = "BERT"
     model_config["model_size"] = "mid"
     model = get_model(model_config)
     total_params = sum(p.numel() for p in model.parameters())

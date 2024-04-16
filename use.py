@@ -12,7 +12,7 @@ def prediction(data_type, model, device, test_loader):
     true = []
     with torch.no_grad():
         for datas in tqdm(test_loader, leave=False):
-            if data_type == "BERT":
+            if data_type == "Word":
                 x, m, y = datas
                 x = x.to(device)
                 m = m.to(device)
@@ -66,9 +66,9 @@ def next_moves(data_type, num_moves, model, games, num, device):
         model.eval()
         with torch.no_grad():
             pred = model(x)[0]
-           
+    pred = torch.nn.functional.softmax(pred)
     top_indices = np.argsort(pred.cpu().numpy())[-num:]
-    return top_indices, torch.tensor([pred[i] for i in top_indices])
+    return top_indices, torch.tensor([pred[i] for i in top_indices]).numpy()
 
 
 
@@ -89,26 +89,52 @@ if __name__ == "__main__":
     model_config["state_path"] = "models_160/p1/model.safetensors"
 
     device = "cuda:0"
-    games = [['dq','dd','pd','pp','co','qc','qd','pc','nc','oc','od','nb','rc','rb','mb','mc',
-              'nd','lb','ob','rd','qb','sc','pb','oo','jq','ma','rc','kc','re','ce','cj','qc',
-              'ra','iq','ip','hq','jr','hp','io','ho','in','hn','hm','im','gm','il','ko','qj',
-              'kl','ij','hk','ik','hj','hi','gi','hh','gh','hg','gg','gf','ff','ge','fe','fd',
-              'gd','hd','gc','fc','hc','ic','he','hf','id','jd','je','hl','gl','ke','jf','gb',
-              'hb','fb','kf','ib','le','gj','gk','fj','eh','fk','el','di','dh','ci','ch','bi',
-              'bh','fl','fm','em','en','dm','fn','dl','ii','ha','ji','ei','df','hd','bf','dn',
-              'do','eo','fo','ep','fp','eq','fq','er','fr','dr','cq','cr','br','bn','bo','cn',
-              'cs','pi','qq','qp','pq','oq','or','nr','nq','op','mr','rq','rr','pr','ns','qr',
-              'qh','be','ai','bj','cf','bq','bp','ph','qg','bs','as','kk','ri','ll','nl','lj',
-              'pg','ql','km','ki','jj','jk','kh','lh','jh','lm','ln','mn','mo','mm','no','lg',
-              'kd','ie','nn','nm','on','om','pn','kg','jg','qn','pm','pl']]
+    games = [['dq','dd','pp','pd','cn','nq','qn','jp','qc','qd','pc','nc','rd','re','od','oc','qe',
+              'pe','qf','rc','pf','oe','of','ne','nf','me','rf','sd','cc','dc','oq','np','cd',
+              'cf','db','eb','cb','fc','de','ce','ee','fd','cg','df','ef','dg','eg','dh','ed',
+              'ec','hc','hd','id','he','ie','hf','eh','di','ei','dj','ej','dk','if','hg','gc',
+              'gd','nr','mr','or','fq','be','bf','ig','hh','ek','dl','hq','hp','iq','ip','gq',
+              'gp','fr','jq','el','dm','gb','fb','fp','fo','eq','dn','co','fm','ih','hi','ii',
+              'hj','bd','ij','ic','kc','mf','lf','lg','kf','kg','pm','qm','pl','ql']]
 
-
-    data_type = 'BERT'
+    anses = []
+    probs = []
+    data_type = 'Word'
     model_config["model_name"] = "BERT"
     model = get_model(model_config).to(device)
-    state = torch.load(f'models_{data_config["num_moves"]}/BERT1_s27_30000.pt')
+    state = torch.load(f'models/BERT/mid_s2_7500x4.pt')
     model.load_state_dict(state)
-    ans,_ = next_moves(data_type, data_config["num_moves"], model, games, 3, device)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
     ans = [(int(step/19),int(step%19)) for step in ans]
-    print(ans)
-    
+    anses.append(ans)
+    probs.append(prob)
+
+    data_type = 'Word'
+    model_config["model_name"] = "BERTp"
+    model = get_model(model_config).to(device)
+    state = torch.load(f'models/BERT/mid_s27_30000.pt')
+    model.load_state_dict(state)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
+    ans = [(int(step/19),int(step%19)) for step in ans]
+    anses.append(ans)
+    probs.append(prob)
+
+    data_type = 'Picture'
+    model_config["model_name"] = "ResNet"
+    model = get_model(model_config).to(device)
+    state = torch.load(f'models/ResNet/mid_10000.pt')
+    model.load_state_dict(state)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
+    ans = [(int(step/19),int(step%19)) for step in ans]
+    anses.append(ans)
+    probs.append(prob)
+
+    vote = {}
+    for i, prob in enumerate(probs):
+        for j, p in enumerate(prob):
+            if anses[i][j] in vote.keys():
+                vote[anses[i][j]] += p
+            else:
+                vote[anses[i][j]] = p
+    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
+    print(sorted_vote)
