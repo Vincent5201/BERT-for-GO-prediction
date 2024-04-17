@@ -69,7 +69,9 @@
 * 使用 Huggingface 的模型，自訂 vocab 大小等模型參數
 * 使用 "mean of last hidden states" 來分類
 ---
+
 (skip)
+
 ---
 
 ## Conclusion
