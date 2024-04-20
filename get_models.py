@@ -4,6 +4,7 @@ import torch
 import yaml
 import torch.nn.functional as F
 from safetensors import safe_open
+from torchsummary import summary
 
 
 class Bert_Go(nn.Module):
@@ -168,3 +169,4 @@ if __name__ == "__main__":
     model = get_model(model_config)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total Parameters: {total_params}")
+    summary(model, [(240,), (240,)], device="cpu")

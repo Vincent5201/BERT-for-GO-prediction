@@ -12,7 +12,12 @@ def rotate(matrix):
     return matrix
 
 def transformG(game, m):
-    game = [m[int(move/19)][move%19] for move in game]
+    length = len(game)
+    game = [m[int(move/19)][move%19] for move in game if move]
+    length -= len(game)
+    while(length > 0):
+        game.append(0)
+        length -= 1
     return game
 
 def check_top_left(step):
@@ -63,6 +68,7 @@ def extend(games):
     games90 = []
     games180 = []
     games270 = []
+    gamesf = []
     for game in games:
         game90 = transformG(copy.deepcopy(game), m90)
         games90.append(game90)
@@ -70,8 +76,15 @@ def extend(games):
         games180.append(game180)
         game270 = transformG(copy.deepcopy(game180), m90)
         games270.append(game270)
-    
-    games = np.concatenate((np.array(games),np.array(games90), np.array(games180), np.array(games270)), axis=0)
+        gamef = transformG(copy.deepcopy(game), mflip)
+        gamesf.append(gamef)
+        game90f = transformG(copy.deepcopy(game90), mflip)
+        gamesf.append(game90f)
+        game180f = transformG(copy.deepcopy(game180), mflip)
+        gamesf.append(game180f)
+        game270f = transformG(copy.deepcopy(game270), mflip)
+        gamesf.append(game270f)
+    games = np.concatenate((np.array(games),np.array(games90), np.array(games180), np.array(games270), np.array(gamesf)), axis=0)
     return games
 
 def check(game, data_source, num_moves):
