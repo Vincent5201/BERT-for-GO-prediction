@@ -11,17 +11,18 @@ from tools import myaccn
 
 data_config = {}
 data_config["path"] = 'datas/data_240119.csv'
-data_config["data_size"] = 30000
+data_config["data_size"] = 10000
 data_config["offset"] = 0
 data_config["data_type"] = "Word"
 data_config["data_source"] = "pros"
-data_config["num_moves"] = 80
+data_config["num_moves"] = 240
+data_config["extend"] = False
 
 model_config = {}
 model_config["model_name"] = "BERT"
 model_config["model_size"] = "mid"
-model_config["config_path"] = "models_160/p1/config.json"
-model_config["state_path"] = "models_160/p1/model.safetensors"
+model_config["config_path"] = "models/BERT/p1/config.json"
+model_config["state_path"] = "models/BERT/p1/model.safetensors"
 
 batch_size = 64
 num_epochs = 50
@@ -29,15 +30,15 @@ lr = 5e-5
 device = "cuda:1"
 save = True
 random_seed = random.randint(0,100)
-print(f'rand_seed:{random_seed}')
-
 random.seed(random_seed)
 torch.manual_seed(random_seed)
 torch.cuda.manual_seed_all(random_seed)
+print(f'rand_seed:{random_seed}')
+
 model = get_model(model_config).to(device)
+model.load_state_dict(torch.load(f'models/BERT/model10.pt'))
 
 trainData, testData = get_datasets(data_config)
-print(trainData.x[50])
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 loss_fct = nn.CrossEntropyLoss()
 
@@ -55,7 +56,14 @@ for epoch in range(num_epochs):
             m = m.to(device)
             y = y.to(device)
             pred = model(x, m)
-        else:
+        elif data_config["data_type"] == "Combine":
+            xw, m, xp, y = datas
+            xw = xw.to(device)
+            xp = xp.to(device)
+            m = m.to(device)
+            y = y.to(device)
+            pred = model(xw, m, xp)
+        elif data_config["data_type"] == "Picture":
             x, y = datas
             x = x.to(device)
             y = y.to(device)
@@ -72,13 +80,20 @@ for epoch in range(num_epochs):
     true = []
     with torch.no_grad():
         for datas in tqdm(test_loader, leave=False):
-            if data_config["data_type"] == "BERT":
+            if data_config["data_type"] == "Word":
                 x, m, y = datas
                 x = x.to(device)
                 m = m.to(device)
                 y = y.to(device)
                 pred = model(x, m)
-            else:
+            elif data_config["data_type"] == "Combine":
+                xw, m, xp, y = datas
+                xw = xw.to(device)
+                xp = xp.to(device)
+                m = m.to(device)
+                y = y.to(device)
+                pred = model(xw, m, xp)
+            elif data_config["data_type"] == "Picture":
                 x, y = datas
                 x = x.to(device)
                 y = y.to(device)

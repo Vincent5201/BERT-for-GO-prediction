@@ -9,17 +9,16 @@ from get_datasets import get_datasets
 from get_models import get_model
 from tools import *
 
-def class_correct_moves(predls, true, n):
-    l = len(predls)
-    records = [[] for _ in range(2**l)]
+def class_correct_moves(predls, trues, n):
+    records = [[] for _ in range(2**len(predls))]
     print("start classiy")
-    for j in tqdm(range(len(true)), total=len(true), leave=False):
+    for j, tgt in tqdm(enumerate(trues), total=len(trues), leave=False):
         pos = 0
-        for i in range(l):
+        for i, predl in enumerate(predls):
             pos *= 2
-            sorted_indices = (-(predls[i][j])).argsort()
+            sorted_indices = (-(predl[j])).argsort()
             top_k_indices = sorted_indices[:n]  
-            if true[j] in top_k_indices:
+            if tgt in top_k_indices:
                 pos += 1
         records[pos].append(j)
     return records
@@ -29,9 +28,15 @@ def prob_vote(sorted_indices, sorted_p):
     for p, indices in enumerate(sorted_indices):
         for q, indice in enumerate(indices):
             if indice in vote.keys():
-                vote[indice] += sorted_p[p][q]
+                if p:
+                    vote[indice] += sorted_p[p][q]
+                else:
+                    vote[indice] += sorted_p[p][q]*3
             else:
-                vote[indice] = sorted_p[p][q]
+                if p:
+                    vote[indice] = sorted_p[p][q]
+                else:
+                    vote[indice] = sorted_p[p][q]*3
     sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
     choices = list(sorted_vote.keys())
     return choices
@@ -42,19 +47,25 @@ def prob_rank_vote(sorted_indices, sorted_p):
     for p, indices in enumerate(sorted_indices):
         for q, indice in enumerate(indices):
             if indice in prob_vote.keys():
-                prob_vote[indice] += sorted_p[p][q]
+                if p:
+                    prob_vote[indice] += sorted_p[p][q]
+                else:
+                    prob_vote[indice] += sorted_p[p][q]*3
             else:
-                prob_vote[indice] = sorted_p[p][q]
+                if p:
+                    prob_vote[indice] = sorted_p[p][q]
+                else:
+                    prob_vote[indice] = sorted_p[p][q]*3
             if indice in rank_vote.keys():
                 if p:
-                    rank_vote[indice] += (0.9-q/10)
-                else:
                     rank_vote[indice] += (1-q/10)
+                else:
+                    rank_vote[indice] += (0.95-q/10)
             else:
                 if p:
-                    rank_vote[indice] = (0.9-q/10)
-                else:
                     rank_vote[indice] = (1-q/10)
+                else:
+                    rank_vote[indice] = (0.95-q/10)
     sorted_prob = dict(sorted(prob_vote.items(), key=lambda item: item[1], reverse=True))
     sorted_rank = dict(sorted(rank_vote.items(), key=lambda item: item[1], reverse=True))
     probs = list(sorted_prob.keys())[:5]
@@ -62,55 +73,48 @@ def prob_rank_vote(sorted_indices, sorted_p):
     comb_vote = {}
     for i, indice in enumerate(probs):
         if indice in comb_vote.keys():
-            comb_vote[indice] += (0.95-i*i/10)
-        else:
-            comb_vote[indice] = (0.95-i*i/10)
-    for i, indice in enumerate(ranks):
-        if indice in comb_vote.keys():
             comb_vote[indice] += (1-i*i/10)
         else:
             comb_vote[indice] = (1-i*i/10)
+    for i, indice in enumerate(ranks):
+        if indice in comb_vote.keys():
+            comb_vote[indice] += (0.95-i*i/10)
+        else:
+            comb_vote[indice] = (0.95-i*i/10)
     sorted_comb = dict(sorted(comb_vote.items(), key=lambda item: item[1], reverse=True))
     combs = list(sorted_comb.keys())[:5]
     return combs
 
-def rank_vote(sorted_indices):
-    vote = {}
-    for p, indices in enumerate(sorted_indices):
-        for q, indice in enumerate(indices):
-            if indice in vote.keys():
-                if p:
-                    vote[indice] += (0.9-q/10)
-                else:
-                    vote[indice] += (1-q/10)
-            else:
-                if p:
-                    vote[indice] = (0.9-q/10)
-                else:
-                    vote[indice] = (1-q/10)
-    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
-    choices = list(sorted_vote.keys())
-    return choices
-
 def get_data_pred(data_config, models, data_types, device):
     batch_size = 64
     predls = []
-    data_config["data_type"] = "Word"
-    _, testDataW = get_datasets(data_config, train=False)
-    test_loaderW = DataLoader(testDataW, batch_size=batch_size, shuffle=False)
-    trues = testDataW.y
+    if "Word" in data_types:
+        data_config["data_type"] = "Word"
+        _, testDataW = get_datasets(data_config, train=False)
+        test_loaderW = DataLoader(testDataW, batch_size=batch_size, shuffle=False)
+        trues = testDataW.y
+    if "Picture" in data_types:
+        data_config["data_type"] = "Picture"
+        _, testDataP = get_datasets(data_config, train=False)
+        test_loaderP = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
+        trues = testDataP.y
+    if "Combine" in data_types:
+        data_config["data_type"] = "Combine"
+        _, testDataWP = get_datasets(data_config, train=False)
+        test_loaderWP = DataLoader(testDataWP, batch_size=batch_size, shuffle=False)
+        trues = testDataW.y
 
-    data_config["data_type"] = "Picture"
-    _, testDataP = get_datasets(data_config, train=False)
-    test_loaderP = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
     for i, model in enumerate(models):
         if data_types[i] == "Word":
-            predl, _ = prediction(data_types[i], model, device, test_loaderW)
-        else:
-            predl, _ = prediction(data_types[i], model, device, test_loaderP)
+            predl, _ = prediction("Word", model, device, test_loaderW)
+        elif data_types[i] == "Combine":
+            predl, _ = prediction("Combine", model, device, test_loaderWP)
+        elif data_types[i] == "Picture":
+            predl, _ = prediction("Picture", model, device, test_loaderP)
         predls.append(predl)
     
-
+    #np.save('analyze_data/predls2.npy', predls)
+    #np.save('analyze_data/trues3.npy', trues)
     return testDataP, testDataW, predls, trues.cpu().numpy()
 
 def mix_acc(n, predls, trues, smart=None):
@@ -126,8 +130,6 @@ def mix_acc(n, predls, trues, smart=None):
         choices = []
         if smart == "prob_vote":
             choices = prob_vote(sorted_indices, sorted_p)
-        elif smart == "rank_vote":
-            choices = rank_vote(sorted_indices)
         elif smart == "prob_rank_vote":
             choices = prob_rank_vote(sorted_indices, sorted_p)
         else:
@@ -159,20 +161,19 @@ def invalid_rate(board, predls, n=1):
                 invalid[j] += 1
     return [e/total for e in invalid]
             
-def score_more(data_config, models, device, score_type):
 
+def score_more(data_config, models, device, score_type):
+    testDataP = None
     testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
-    #predls = np.load('analyzation_data/prediction4_30000_s8596.npy')
-    #trues = np.load('analyzation_data/trues4_s8596.npy')
+    #predls = np.load('analyze_data/predls2.npy')
+    #trues = np.load('analyze_data/trues.npy')
 
     if score_type == "compare_correct":
-        records, count = compare_correct(predls, trues)
+        records, count = compare_correct(predls, trues, 1)
         print(count)
         #print(records)
     elif score_type == "mix_acc":
-        acc = mix_acc(1, data_config, predls, trues, "rank_vote")
-        print(acc)
-        acc = mix_acc(1, data_config, predls, trues, "prob_rank_vote")
+        acc = mix_acc(1, predls, trues, "prob_vote")
         print(acc)
     elif score_type == "acc+compare":
         records, count = compare_correct(predls, trues, 5)
@@ -180,16 +181,18 @@ def score_more(data_config, models, device, score_type):
         acc = mix_acc(5, predls, trues, "prob_vote")
         print(acc)
     elif score_type == "invalid":
-        invalid = invalid_rate(testDataP.x, predls, 10)
+        invalid = invalid_rate(testDataP.x, predls, 1)
         print(invalid)
-        
+        invalid = invalid_rate(testDataP.x, predls, 5)
+        print(invalid)
+
 if __name__ == "__main__":
     data_config = {}
-    data_config["path"] = 'datas/data_240119.csv'
-    data_config["data_size"] = 35000
+    data_config["path"] = 'datas/data_Foxwq_9d.csv'
+    data_config["data_size"] = 50000
     data_config["offset"] = 0
     data_config["data_type"] = "Picture"
-    data_config["data_source"] = "pros"
+    data_config["data_source"] = "foxwq"
     data_config["num_moves"] = 240
     data_config["extend"] = False
 
@@ -198,13 +201,14 @@ if __name__ == "__main__":
     model_config["model_size"] = "mid"
 
     device = "cuda:0"
-    score_type = "invalid"
+    score_type = "compare_correct"
 
-    data_types = ['Picture', 'Word', 'Word']
-    model_names = ["ResNet", "BERTp", "BERT"] #abc
-    states = [f'models/ResNet/mid_5000.pt',
-              f'models/BERT/mid_s27_30000.pt',
-              f'models/BERT/mid_s2_7500x4.pt']
+    data_types = ['Picture', 'Word','Picture', 'Word']
+    model_names = ["ResNet", "BERT","ResNet", "BERT"] #abc
+    states = [f'models/ResNet/mid_s12_1600.pt',
+              f'models/BERT/mid_s59_10000.pt',
+              f'models/ResNet/mid_s57_5000.pt',
+              f'models/BERT/mid_s27_30000.pt']
     models = []
     for i in range(len(model_names)):
         model_config["model_name"] = model_names[i]

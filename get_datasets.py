@@ -6,7 +6,6 @@ from tqdm import tqdm
 from torch.utils.data import Dataset
 from tools import *
 
-
 class PicturesDataset(Dataset):
     # data loading
     def __init__(self, games):
@@ -65,9 +64,10 @@ class BERTDataset(Dataset):
             y[i] = gamesall[i][last]-1
             gamesall[i][last] = 362
             if sort:
+                print("sorted")
                 gamesall[i][:last] = sort_alternate(gamesall[i][:last])
         print("data finish")
-        
+        gamesall = np.insert(gamesall, 0, 363, axis=1)
         self.x = torch.tensor(gamesall).long()
         self.y = (torch.tensor(y)).long()
         self.mask = (self.x != 0).detach().long()
@@ -78,7 +78,26 @@ class BERTDataset(Dataset):
 
     def __len__(self):
         return self.n_samples
-    
+
+class CombDataset(Dataset):
+    # data loading
+    def __init__(self, games, num_moves):
+        bertdata = BERTDataset(games, num_moves)
+        picdata = PicturesDataset(games)
+        print(bertdata.n_samples == picdata.n_samples)
+        self.xw = bertdata.x
+        self.mask = bertdata.mask
+        self.xp = picdata.x
+        self.y = bertdata.y
+        self.n_samples = bertdata.n_samples
+
+    def __getitem__(self, index):  
+        return self.xw[index], self.mask[index], self.xp[index], self.y[index]
+
+    def __len__(self):
+        return self.n_samples
+
+
 class BERTPretrainDataset(Dataset):
     # data loading
     def __init__(self, games, num_moves):
@@ -150,7 +169,7 @@ class BERTPretrainDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-def get_datasets(data_config, split_rate=0.1, be_top_left=False, train=True):    
+def get_datasets(data_config, split_rate=0.1, train=True):    
     df = pd.read_csv(data_config["path"], encoding="ISO-8859-1", on_bad_lines='skip')
     df = df.sample(frac=1,replace=False,random_state=8596).reset_index(drop=True)\
         .to_numpy()[data_config["offset"]:data_config["offset"]+data_config["data_size"]]
@@ -163,35 +182,51 @@ def get_datasets(data_config, split_rate=0.1, be_top_left=False, train=True):
 
     games = [[transfer(step) for step in game[:data_config["num_moves"]]] for game in games]
     print("transfer finish")
-    if data_config["extend"]:
-        games = extend(games)
-        print("extended")
-    if be_top_left:
-        games = top_left(games)
-        print("top_left")
     split = int(len(games) * split_rate)
     train_dataset = None
     eval_dataset = None
 
     if data_config["data_type"] == 'Word':
         if train:
-            train_dataset = BERTDataset(games[split:],  data_config["num_moves"])
+            if data_config["extend"]:
+                train_dataset = BERTDataset(extend(games[split:]),  data_config["num_moves"])
+            else:
+                train_dataset = BERTDataset(games[split:],  data_config["num_moves"])
         eval_dataset = BERTDataset(games[:split],  data_config["num_moves"])
     elif data_config["data_type"] == 'Picture':
         if train:
-            train_dataset = PicturesDataset(games[split:])
+            if data_config["extend"]:
+                train_dataset = PicturesDataset(extend(games[split:]))
+            else:
+                train_dataset = PicturesDataset(games[split:])
         eval_dataset = PicturesDataset(games[:split])
     elif data_config["data_type"] == "Pretrain":
         games = extend(games)
         train_dataset = BERTPretrainDataset(games, data_config["num_moves"])
         eval_dataset = None
+    elif data_config["data_type"] == "Combine":
+        if train:
+            train_dataset = CombDataset(games[split:], data_config["num_moves"])
+        eval_dataset = CombDataset(games[:split],  data_config["num_moves"])
     
-    if not train_dataset is None:
-        print(f'trainData shape:{train_dataset.x.shape}')
-        print(f'trainData memory size:{get_tensor_memory_size(train_dataset.x)}')
-    if not eval_dataset is None:
-        print(f'evalData shape:{eval_dataset.x.shape}')
-        print(f'evalData memory size:{get_tensor_memory_size(eval_dataset.x)}')
+    if data_config["data_type"] == "Combine":
+        if not train_dataset is None:
+            print(f'trainDatap shape:{train_dataset.xp.shape}')
+            print(f'trainDatap memory size:{get_tensor_memory_size(train_dataset.xp)}')
+            print(f'trainDataw shape:{train_dataset.xw.shape}')
+            print(f'trainDataw memory size:{get_tensor_memory_size(train_dataset.xw)}')
+        if not eval_dataset is None:
+            print(f'evalDatap shape:{eval_dataset.xp.shape}')
+            print(f'evalDatap memory size:{get_tensor_memory_size(eval_dataset.xp)}')
+            print(f'evalDataw shape:{eval_dataset.xw.shape}')
+            print(f'evalDataaw memory size:{get_tensor_memory_size(eval_dataset.xw)}')
+    else:
+        if not train_dataset is None:
+            print(f'trainData shape:{train_dataset.x.shape}')
+            print(f'trainData memory size:{get_tensor_memory_size(train_dataset.x)}')
+        if not eval_dataset is None:
+            print(f'evalData shape:{eval_dataset.x.shape}')
+            print(f'evalData memory size:{get_tensor_memory_size(eval_dataset.x)}')
     return train_dataset, eval_dataset
 
 
