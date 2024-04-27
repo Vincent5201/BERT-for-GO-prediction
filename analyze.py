@@ -22,10 +22,8 @@ def embedding_distance(data_config, model_config, model_path):
     _, testData = get_datasets(data_config, 1, train=False)
     games = torch.stack([testData.x[data_config["num_moves"]*i+data_config["num_moves"]-1]\
                           for i in range(int(len(testData.x)/data_config["num_moves"]))])
-    print(games.shape)
     model = get_model(model_config)
-    state = torch.load(model_path)
-    model.load_state_dict(state)
+    model.load_state_dict(torch.load(model_path))
 
     mat = np.zeros((361,361))
     count = np.zeros((361,361))
@@ -49,50 +47,24 @@ def embedding_distance(data_config, model_config, model_path):
             if count[i][j]:
                 mat[i][j] /= count[i][j]
     np.save('analyzation_data/cos_simi_tmp.npy', mat)
-
     return mat
-
-def data_similarity(data_config):
-    _, testData = get_datasets(data_config, 1, train=False)
-    games = torch.stack([testData.x[data_config["num_moves"]*i+data_config["num_moves"]-1]\
-                        for i in range(int(len(testData.x)/data_config["num_moves"]))]).cpu().numpy()
-    print(games.shape)
-    counts = [0]*(data_config["num_moves"]+1)
-    records = np.zeros((len(games), 361))
-    for i, game in tqdm(enumerate(games), total=len(games), leave=False):
-        for p in range(19):
-            for q in range(19):
-                if game[0][p][q]:
-                    records[i][19*p+q] = 1
-                elif game[1][p][q]:
-                    records[i][19*p+q] = -1
-    print("records end")
-    for i, record1 in tqdm(enumerate(records), total=len(records), leave=False):
-        for j, record2 in enumerate(records):
-            if j > i:
-                counts[np.sum((record1 != 0) & (record1 == record2))] += 1
-    print(counts)
-    return counts
 
 def check_atari(game, x, y, p):
     pp = 1
     if p:
         pp = 0
     count = 0
+    directions = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+    directions2 = [(x-1, y+1), (x+1, y-1), (x-1, y-1), (x+1, y+1)]
     if x > 0 and x < 18 and y > 0 and y < 18:
-        if game[p][x-1][y] or game[p][x+1][y] or game[p][x][y-1] or game[p][x][y+1]:
-            return -1
-        if game[pp][x-1][y+1] or game[pp][x+1][y-1] or game[pp][x-1][y-1] or game[pp][x+1][y+1]:
-            return -1
-
-        if game[pp][x-1][y]:
-            count += 1
-        if game[pp][x+1][y]:
-            count += 1
-        if game[pp][x][y-1]:
-            count += 1
-        if game[pp][x][y+1]:
-            count += 1
+        for d in directions2:
+            if game[pp][d[0]][d[1]]:
+                return -1
+        for d in directions:
+            if game[p][d[0]][d[1]]:
+                return -1
+            if game[pp][d[0]][d[1]]:
+                count += 1
         if count == 3:
             return x*19+y
     return -1
@@ -110,23 +82,14 @@ def find_atari(games, trues):
     for i, game in tqdm(enumerate(games), total=len(games), leave=False):
         x = int(trues[i]/19)
         y = int(trues[i]%19)
-        if x > 0 and game[i%2][x-1][y] and game[10][x-1][y]:
-            ret = check_atari(game, x-1, y, i%2)
-            if ret != -1:
-                pos[ret] += 1
-        if x < 18 and game[i%2][x+1][y] and game[10][x+1][y]:
-            ret = check_atari(game, x+1, y, i%2)
-            if ret != -1:
-                pos[ret] += 1
-        if y > 0 and game[i%2][x][y-1] and game[10][x][y-1]:
-            ret = check_atari(game, x, y-1, i%2)
-            if ret != -1:
-                pos[ret] += 1
-        if y < 18 and game[i%2][x][y+1] and game[10][x][y+1]:
-            ret = check_atari(game, x, y+1, i%2)
-            if ret != -1:
-                pos[ret] += 1
-
+        directions = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+        for d in directions:
+            if d[0] < 0 or d[1] > 18:
+                break
+            if game[i%2][d[0]][d[1]] and game[10][d[0]][d[1]]:
+                ret = check_atari(game, d[0], d[1], i%2)
+                if ret != -1:
+                    pos[ret] += 1
     plot_board(pos)
     return
 

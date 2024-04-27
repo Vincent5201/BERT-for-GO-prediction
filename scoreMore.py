@@ -175,11 +175,6 @@ def score_more(data_config, models, device, score_type):
     elif score_type == "mix_acc":
         acc = mix_acc(1, predls, trues, "prob_vote")
         print(acc)
-    elif score_type == "acc+compare":
-        records, count = compare_correct(predls, trues, 5)
-        print(count)
-        acc = mix_acc(5, predls, trues, "prob_vote")
-        print(acc)
     elif score_type == "invalid":
         invalid = invalid_rate(testDataP.x, predls, 1)
         print(invalid)

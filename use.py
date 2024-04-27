@@ -31,14 +31,10 @@ def prediction(data_type, model, device, test_loader):
                 y = y.to(device)
                 pred = model(x)
             pred = torch.nn.functional.softmax(pred, dim=1)
-            predl += pred
             ans = torch.max(pred,1).indices
-            preds += ans
-            true += y
-    predl = torch.stack(predl).cpu().numpy()
-    true = torch.stack(true)
-    true = torch.tensor(true).cpu().numpy()
-    preds = torch.tensor(preds).cpu().numpy()
+            predl.extend(pred.cpu().numpy())
+            preds.extend(ans.cpu().numpy())
+            true.extend(y.cpu().numpy())
     return predl, true
 
 
@@ -147,17 +143,7 @@ if __name__ == "__main__":
     ans = [(int(step/19),int(step%19)) for step in ans]
     anses.append(ans)
     probs.append(prob)
-    """
-    data_type = 'Word'
-    model_config["model_name"] = "BERTp"
-    model = get_model(model_config).to(device)
-    state = torch.load(f'models/BERT/mid_s27_30000.pt')
-    model.load_state_dict(state)
-    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
-    ans = [(int(step/19),int(step%19)) for step in ans]
-    anses.append(ans)
-    probs.append(prob)
-    """
+
     data_type = 'Picture'
     model_config["model_name"] = "ResNet"
     model = get_model(model_config).to(device)

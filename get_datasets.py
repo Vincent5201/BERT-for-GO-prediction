@@ -49,9 +49,8 @@ class BERTDataset(Dataset):
         gamesall = []
         for game in tqdm(games, total = len(games), leave=False):
             result = stepbystep(game)
-            gamesall.append(result)
+            gamesall.extend(result)
         gamesall = np.array(gamesall)
-        gamesall = gamesall.reshape(gamesall.shape[0]*gamesall.shape[1],gamesall.shape[2]) 
         print("steps finish")
         
         total_steps = gamesall.shape[0]
@@ -69,7 +68,7 @@ class BERTDataset(Dataset):
         print("data finish")
         gamesall = np.insert(gamesall, 0, 363, axis=1)
         self.x = torch.tensor(gamesall).long()
-        self.y = (torch.tensor(y)).long()
+        self.y = torch.tensor(y).long()
         self.mask = (self.x != 0).detach().long()
         self.n_samples = len(self.y)
         

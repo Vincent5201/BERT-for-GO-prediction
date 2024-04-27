@@ -98,16 +98,12 @@ for epoch in range(num_epochs):
                 x = x.to(device)
                 y = y.to(device)
                 pred = model(x)
-            predl += pred
+            pred = torch.nn.functional.softmax(pred, dim=1)
             ans = torch.max(pred,1).indices
-            preds += ans
-            true += y
-    predl = torch.stack(predl)
-    true = torch.stack(true)
+            predl.extend(pred.cpu().numpy())
+            preds.extend(ans.cpu().numpy())
+            true.extend(y.cpu().numpy())
     print(f'val_loss:{loss_fct(pred,y):.4f}')
-
-    true = torch.tensor(true).cpu().numpy()
-    preds = torch.tensor(preds).cpu().numpy()
     print(f'accuracy5:{myaccn(predl,true, 5)}')
     print(f'accuracy:{accuracy_score(preds,true)}')
     if save:
