@@ -195,8 +195,9 @@ def channel_01(datas, k, x, y, turn):
     
     def del_die(x, y, p):
         datas[k][p][x][y] = 0
-        for i in range(10,16):
-            datas[k][i][x][y] = 0
+        if len(datas[0]) >= 16:
+            for i in range(10,16):
+                datas[k][i][x][y] = 0
         directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
         for (dx, dy) in directions:
             if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][p][dx][dy]:
