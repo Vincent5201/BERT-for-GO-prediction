@@ -11,22 +11,20 @@ from tools import myaccn
 
 data_config = {}
 data_config["path"] = 'datas/data_240119.csv'
-data_config["data_size"] = 10000
-data_config["offset"] = 0
-data_config["data_type"] = "Word"
+data_config["data_size"] = 5000
+data_config["offset"] = 5000
+data_config["data_type"] = "Picture"
 data_config["data_source"] = "pros"
 data_config["num_moves"] = 240
 data_config["extend"] = False
 
 model_config = {}
-model_config["model_name"] = "BERT"
+model_config["model_name"] = "ResNet"
 model_config["model_size"] = "mid"
-model_config["config_path"] = "models/BERT/p1/config.json"
-model_config["state_path"] = "models/BERT/p1/model.safetensors"
 
 batch_size = 64
 num_epochs = 50
-lr = 5e-5
+lr = 5e-4
 device = "cuda:1"
 save = True
 random_seed = random.randint(0,100)
@@ -35,8 +33,14 @@ torch.manual_seed(random_seed)
 torch.cuda.manual_seed_all(random_seed)
 print(f'rand_seed:{random_seed}')
 
-model = get_model(model_config).to(device)
-model.load_state_dict(torch.load(f'models/BERT/model10.pt'))
+path1 = None
+path2 = None
+model = get_model(model_config, path1=path1, path2=path2).to(device)
+if "Combine" in model_config["model_name"]:
+    model.m1 = model.m1.to(device)
+    model.m2 = model.m2.to(device)
+
+#model.load_state_dict(torch.load(f'models/BERT/model2.pt'))
 
 trainData, testData = get_datasets(data_config)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -56,6 +60,13 @@ for epoch in range(num_epochs):
             m = m.to(device)
             y = y.to(device)
             pred = model(x, m)
+        elif data_config["data_type"] == "Word_extend":
+            x, m, t, y = datas
+            x = x.to(device)
+            m = m.to(device)
+            t = t.to(device)
+            y = y.to(device)
+            pred = model(x, m, t)
         elif data_config["data_type"] == "Combine":
             xw, m, xp, y = datas
             xw = xw.to(device)
@@ -86,6 +97,13 @@ for epoch in range(num_epochs):
                 m = m.to(device)
                 y = y.to(device)
                 pred = model(x, m)
+            elif data_config["data_type"] == "Word_extend":
+                x, m, t, y = datas
+                x = x.to(device)
+                m = m.to(device)
+                t = t.to(device)
+                y = y.to(device)
+                pred = model(x, m, t)
             elif data_config["data_type"] == "Combine":
                 xw, m, xp, y = datas
                 xw = xw.to(device)
@@ -98,11 +116,11 @@ for epoch in range(num_epochs):
                 x = x.to(device)
                 y = y.to(device)
                 pred = model(x)
-            pred = torch.nn.functional.softmax(pred, dim=1)
             ans = torch.max(pred,1).indices
             predl.extend(pred.cpu().numpy())
             preds.extend(ans.cpu().numpy())
             true.extend(y.cpu().numpy())
+
     print(f'val_loss:{loss_fct(pred,y):.4f}')
     print(f'accuracy5:{myaccn(predl,true, 5)}')
     print(f'accuracy:{accuracy_score(preds,true)}')

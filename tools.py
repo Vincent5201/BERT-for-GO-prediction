@@ -70,21 +70,21 @@ def extend(games):
     games270 = []
     gamesf = []
     for game in games:
-        game90 = transformG(copy.deepcopy(game), m90)
-        games90.append(game90)
-        game180 = transformG(copy.deepcopy(game90), m90)
-        games180.append(game180)
-        game270 = transformG(copy.deepcopy(game180), m90)
-        games270.append(game270)
+        #game90 = transformG(copy.deepcopy(game), m90)
+        #games90.append(game90)
+        #game180 = transformG(copy.deepcopy(game90), m90)
+        #games180.append(game180)
+        #game270 = transformG(copy.deepcopy(game180), m90)
+        #games270.append(game270)
         gamef = transformG(copy.deepcopy(game), mflip)
         gamesf.append(gamef)
-        game90f = transformG(copy.deepcopy(game90), mflip)
-        gamesf.append(game90f)
-        game180f = transformG(copy.deepcopy(game180), mflip)
-        gamesf.append(game180f)
-        game270f = transformG(copy.deepcopy(game270), mflip)
-        gamesf.append(game270f)
-    games = np.concatenate((np.array(games),np.array(games90), np.array(games180), np.array(games270), np.array(gamesf)), axis=0)
+        #game90f = transformG(copy.deepcopy(game90), mflip)
+        #gamesf.append(game90f)
+        #game180f = transformG(copy.deepcopy(game180), mflip)
+        #gamesf.append(game180f)
+        #game270f = transformG(copy.deepcopy(game270), mflip)
+        #gamesf.append(game270f)
+    games = np.concatenate((np.array(games),np.array(gamesf)), axis=0)
     return games
 
 def check(game, data_source, num_moves):
@@ -122,11 +122,11 @@ def transfer(step):
     return (ord(step[0])-97)*19 + (ord(step[1])-97) 
 
 def transfer_back(step):
-    return chr(int(step/19)+97)+chr(int(step%19)+97)
+    return chr(int(step/19)+97)+chr(int(step%19)+97) 
 
-def stepbystep(game):
+def stepbystep(game, shift=0):
     num_moves = len(game)
-    rgames = [[game[j]+1 if j <= i else 0 for j in range(num_moves)] for i in range(num_moves)]
+    rgames = [[game[j]+shift if j <= i else 0 for j in range(num_moves)] for i in range(num_moves)]
     return rgames
 
 def get_tensor_memory_size(tensor):
@@ -195,9 +195,8 @@ def channel_01(datas, k, x, y, turn):
     
     def del_die(x, y, p):
         datas[k][p][x][y] = 0
-        if len(datas[0]) >= 16:
-            for i in range(10,16):
-                datas[k][i][x][y] = 0
+        for i in range(10,16):
+            datas[k][i][x][y] = 0
         directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
         for (dx, dy) in directions:
             if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][p][dx][dy]:
@@ -240,7 +239,7 @@ def channel_49(datas, k, turn, labels):
         kk -= 1
     return
 
-def channel_1015(datas, k, x, y, turn):
+def channel_1015(datas, k, x, y, turn, mode="train",board=None):
     counted_empty = set()
     def check_liberty(x, y, p):
         liberty = 0
@@ -260,16 +259,19 @@ def channel_1015(datas, k, x, y, turn):
         return liberty
     
     def set_liberty_plane(x, y, liberty):
-        if liberty < 6:
-            for i in range(10,16):
-                if i == liberty+9:
-                    datas[k][i][x][y] = 1
-                else:
+        if mode == "train":
+            if liberty < 6:
+                for i in range(10,16):
+                    if i == liberty+9:
+                        datas[k][i][x][y] = 1
+                    else:
+                        datas[k][i][x][y] = 0
+            else:
+                for i in range(10,15):
                     datas[k][i][x][y] = 0
+                datas[k][15][x][y] = 1
         else:
-            for i in range(10,15):
-                datas[k][i][x][y] = 0
-            datas[k][15][x][y] = 1
+            board[k][x][y] = min(6, liberty)
         return 
     
     def set_liberty(x, y, p, liberty):
@@ -293,7 +295,7 @@ def channel_1015(datas, k, x, y, turn):
         counted_empty.clear()
         if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][pp][dx][dy]:
             set_liberty(dx, dy, pp, check_liberty(dx, dy, pp))
-    return ret
+    return 
 
 def myaccn(pred, true, n):
     total = len(true)

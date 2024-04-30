@@ -7,7 +7,6 @@ from tools import *
 
 def prediction(data_type, model, device, test_loader):
     model.eval()
-    preds = []
     predl = []
     true = []
     with torch.no_grad():
@@ -18,6 +17,12 @@ def prediction(data_type, model, device, test_loader):
                 m = m.to(device)
                 y = y.to(device)
                 pred = model(x, m)
+            elif data_type == "Word_extend":
+                x, m, t, y = datas
+                x = x.to(device)
+                m = m.to(device)
+                t = t.to(device)
+                y = y.to(device)
             elif data_type == "Combine":
                 xw, m, xp, y = datas
                 xw = xw.to(device)
@@ -30,11 +35,9 @@ def prediction(data_type, model, device, test_loader):
                 x = x.to(device)
                 y = y.to(device)
                 pred = model(x)
-            pred = torch.nn.functional.softmax(pred, dim=1)
-            ans = torch.max(pred,1).indices
             predl.extend(pred.cpu().numpy())
-            preds.extend(ans.cpu().numpy())
             true.extend(y.cpu().numpy())
+
     return predl, true
 
 
@@ -55,7 +58,7 @@ def next_moves(data_type, num_moves, model, games, num, device):
         model.eval()
         with torch.no_grad():
             pred = model(x, mask)[0]
-
+    
     elif data_type == 'Picture':
         datas = np.zeros([1,16,19,19],  dtype=np.float32)
         for j, move in enumerate(games[0]):
@@ -98,25 +101,8 @@ def next_moves(data_type, num_moves, model, games, num, device):
     top_indices = np.argsort(pred.cpu().numpy())[-num:]
     return top_indices, torch.tensor([pred[i] for i in top_indices]).numpy()
 
-def next_moves_mul(data_types, num_moves, models, games, num, device):
-    anses = []
-    probs = []
-    
-    for i, model in enumerate(models):
-        ans, prob = next_moves(data_types[i], num_moves, model, games, 5, device)
-        anses.append(ans)
-        probs.append(prob)
-    
-    vote = {}
-    for i, prob in enumerate(probs):
-        for j, p in enumerate(prob):
-            if anses[i][j] in vote.keys():
-                vote[anses[i][j]] += p
-            else:
-                vote[anses[i][j]] = p
-    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
-    return sorted_vote
-    
+
+
 if __name__ == "__main__":
 
     data_config = {}
@@ -130,8 +116,7 @@ if __name__ == "__main__":
     model_config = {}
     model_config["model_name"] = "BERT"
     model_config["model_size"] = "mid"
-    model_config["config_path"] = "models_160/p1/config.json"
-    model_config["state_path"] = "models_160/p1/model.safetensors"
+
 
     device = "cuda:0"
     games = [['dc','pd','cp','pp','nq','eq','qn','np','mp','no','pq','qq','oq','qp','pm','mo',
@@ -148,19 +133,45 @@ if __name__ == "__main__":
               'fb','fo','gq','fr','lb','kb','la','ka','na','hj','gj','gi','ij','hk','gl','ik',
               'jk','jj','il','ii','hh','jd','gg','gn']]
 
-    data_types = ['Picture', 'Word','Picture', 'Word']
-    model_names = ["ResNet", "BERT","ResNet", "BERT"] #abc
-    states = [f'models/ResNet/mid_s12_1600.pt',
-              f'models/BERT/mid_s59_10000.pt',
-              f'models/ResNet/mid_s57_5000.pt',
-              f'models/BERT/mid_s27_30000.pt']
-    models = []
-    for i in range(len(model_names)):
-        model_config["model_name"] = model_names[i]
-        model = get_model(model_config).to(device)
-        state = torch.load(states[i])
-        model.load_state_dict(state)
-        models.append(model)
+    anses = []
+    probs = []
 
-    results = next_moves_mul(data_types, 240, models, games, 5, device)
-    print(results)
+    data_type = 'Word'
+    model_config["model_name"] = "BERT"
+    model = get_model(model_config).to(device)
+    state = torch.load(f'models/BERT/mid_s2_7500x4.pt')
+    model.load_state_dict(state)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
+    ans = [(int(step/19),int(step%19)) for step in ans]
+    anses.append(ans)
+    probs.append(prob)
+    """
+    data_type = 'Word'
+    model_config["model_name"] = "BERTp"
+    model = get_model(model_config).to(device)
+    state = torch.load(f'models/BERT/mid_s27_30000.pt')
+    model.load_state_dict(state)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
+    ans = [(int(step/19),int(step%19)) for step in ans]
+    anses.append(ans)
+    probs.append(prob)
+    """
+    data_type = 'Picture'
+    model_config["model_name"] = "ResNet"
+    model = get_model(model_config).to(device)
+    state = torch.load(f'models/ResNet/mid_10000.pt')
+    model.load_state_dict(state)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
+    ans = [(int(step/19),int(step%19)) for step in ans]
+    anses.append(ans)
+    probs.append(prob)
+
+    vote = {}
+    for i, prob in enumerate(probs):
+        for j, p in enumerate(prob):
+            if anses[i][j] in vote.keys():
+                vote[anses[i][j]] += p
+            else:
+                vote[anses[i][j]] = p
+    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
+    print(sorted_vote)
