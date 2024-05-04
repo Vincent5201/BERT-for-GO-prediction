@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import copy
 import torch
 import gc
 from tqdm import tqdm
@@ -9,16 +8,13 @@ from tools import *
 
 class PicturesDataset(Dataset):
     # data loading
-    def __init__(self, games, mode="train"):
+    def __init__(self, games):
         total_moves = 0
         for game in games:
             total_moves += len(game)
         datas = np.zeros([total_moves,16,19,19],  dtype=np.float32)
         labels = np.zeros(total_moves)
         game_start = 0
-        board = None
-        if mode == "board":
-            board = np.zeros((total_moves, 19, 19))
         for _, game in tqdm(enumerate(games),total=len(games), leave=False):
             for j, move in enumerate(game):
                 labels[game_start] = move
@@ -30,22 +26,16 @@ class PicturesDataset(Dataset):
                     y = int(labels[game_start-1] % 19)
                     datas[game_start] = datas[game_start-1]
                     channel_01(datas, game_start, x, y, j)
-                    if mode == "train":
-                        channel_2(datas, game_start)
-                        channel_3(datas, game_start, j)
-                        channel_49(datas, game_start, j, labels)
-                        channel_1015(datas, game_start, x, y, j)
-                    else:
-                        board[game_start] = board[game_start-1]
-                        channel_1015(datas, game_start, x, y, j, mode=mode, board=board)
+                    channel_2(datas, game_start)
+                    channel_3(datas, game_start, j)
+                    channel_49(datas, game_start, j, labels)
+                    channel_1015(datas, game_start, x, y, j)
                 game_start += 1
-        if mode == "train":
-            self.x = torch.tensor(datas)
-            self.y = torch.tensor(labels, dtype=torch.long)
-            self.n_samples = total_moves
-        else:
-            self.board = board
-            del datas, labels
+    
+        self.x = torch.tensor(datas)
+        self.y = torch.tensor(labels, dtype=torch.long)
+        self.n_samples = total_moves
+
         gc.collect()
         
     def __getitem__(self, index):  
@@ -57,45 +47,7 @@ class PicturesDataset(Dataset):
 class BERTDataset(Dataset):
     # data loading
     def __init__(self, games, num_moves, sort=False, shuffle=False):
-        if shuffle:
-            games = shuffle_pos(games)
-        gamesall = []
-        for game in tqdm(games, total = len(games), leave=False):
-            result = stepbystep(game, 1)
-            gamesall.extend(result)
-        gamesall = np.array(gamesall)
-        print("steps finish")
-
-        total_steps = gamesall.shape[0]
-        y = [0]*(total_steps)
-        for i in tqdm(range(total_steps), total=total_steps, leave=False):
-            last = 0
-            while last < num_moves and gamesall[i][last]:
-                last += 1
-            last -= 1
-            y[i] = gamesall[i][last]-1
-            gamesall[i][last] = 362
-            if sort:
-                print("sorted")
-                gamesall[i][:last] = sort_alternate(gamesall[i][:last])
-        print("data finish")
-        gamesall = np.insert(gamesall, 0, 363, axis=1)
-        self.x = torch.tensor(gamesall, dtype=torch.long)
-        self.y = torch.tensor(y, dtype=torch.long)
-        self.mask = (self.x != 0).detach().long()
-        self.n_samples = len(self.y)
-        gc.collect()
-        
-    def __getitem__(self, index):  
-        return self.x[index], self.mask[index], self.y[index]
-
-    def __len__(self):
-        return self.n_samples
-
-class BERTExtendDataset(Dataset):
-    # data loading
-    def __init__(self, games, num_moves, sort=False, shuffle=False):
-        p_dataset = PicturesDataset(games, mode="board").board
+        p_dataset = get_board(games)
         if shuffle:
             games = shuffle_pos(games)
         gamesall = []
@@ -144,17 +96,19 @@ class BERTExtendDataset(Dataset):
 class CombDataset(Dataset):
     # data loading
     def __init__(self, games, num_moves):
-        bertdata = BERTDataset(games, num_moves)
         picdata = PicturesDataset(games)
-        print(bertdata.n_samples == picdata.n_samples)
+        self.xp = picdata.x
+        gc.collect()
+        bertdata = BERTDataset(games, num_moves)
         self.xw = bertdata.x
         self.mask = bertdata.mask
-        self.xp = picdata.x
+        self.tokentype = bertdata.token_types
         self.y = bertdata.y
         self.n_samples = bertdata.n_samples
+        print(bertdata.n_samples == picdata.n_samples)
         gc.collect()
     def __getitem__(self, index):  
-        return self.xw[index], self.mask[index], self.xp[index], self.y[index]
+        return self.xw[index], self.mask[index], self.tokentype[index], self.xp[index], self.y[index]
 
     def __len__(self):
         return self.n_samples
@@ -183,13 +137,6 @@ def get_datasets(data_config, split_rate=0.1, train=True):
             else:
                 train_dataset = BERTDataset(games[split:],  data_config["num_moves"])
         eval_dataset = BERTDataset(games[:split],  data_config["num_moves"])
-    elif data_config["data_type"] == 'Word_extend':
-        if train:
-            if data_config["extend"]:
-                train_dataset = BERTExtendDataset(extend(games[split:]),  data_config["num_moves"])
-            else:
-                train_dataset = BERTExtendDataset(games[split:],  data_config["num_moves"])
-        eval_dataset = BERTExtendDataset(games[:split],  data_config["num_moves"])
     elif data_config["data_type"] == 'Picture':
         if train:
             if data_config["extend"]:

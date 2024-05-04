@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 from tqdm import tqdm
+import gc
 
 def rotate(matrix):
     n = len(matrix)
@@ -213,6 +214,7 @@ def channel_01(datas, k, x, y, turn):
             if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][1][dx][dy]:
                 if checkDie(dx, dy, 1):
                     del_die(dx, dy, 1)
+    gc.collect()
     return
 
 def channel_2(datas, k):
@@ -241,6 +243,9 @@ def channel_49(datas, k, turn, labels):
 
 def channel_1015(datas, k, x, y, turn, mode="train",board=None):
     counted_empty = set()
+    if mode == "board":
+        idb = k
+        k = 0
     def check_liberty(x, y, p):
         liberty = 0
         pp = 0 if p else 1
@@ -271,7 +276,7 @@ def channel_1015(datas, k, x, y, turn, mode="train",board=None):
                     datas[k][i][x][y] = 0
                 datas[k][15][x][y] = 1
         else:
-            board[k][x][y] = min(6, liberty)
+            board[idb][x][y] = min(6, liberty)
         return 
     
     def set_liberty(x, y, p, liberty):
@@ -295,6 +300,7 @@ def channel_1015(datas, k, x, y, turn, mode="train",board=None):
         counted_empty.clear()
         if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][pp][dx][dy]:
             set_liberty(dx, dy, pp, check_liberty(dx, dy, pp))
+    gc.collect()
     return 
 
 def myaccn(pred, true, n):
@@ -318,3 +324,28 @@ def myaccn_split(pred, true, n, split, num_move):
     for i in range(split):
         correct[i] /= part_total
     return correct 
+
+def get_board(games):
+    total_moves = 0
+    for game in games:
+        total_moves += len(game)
+    labels = np.zeros(total_moves)
+    game_start = 0
+    board = np.zeros((total_moves, 19, 19))
+    datas = np.zeros([1,16,19,19],  dtype=np.float32)
+    for _, game in tqdm(enumerate(games),total=len(games), leave=False):
+        for j, move in enumerate(game):
+            labels[game_start] = move
+            if j == 0:
+                datas = np.zeros([1,16,19,19],  dtype=np.float32)
+            else:
+                x = int(labels[game_start-1] / 19)
+                y = int(labels[game_start-1] % 19)
+                channel_01(datas, 0, x, y, j)
+                channel_2(datas, 0)
+                board[game_start] = board[game_start-1]
+                channel_1015(datas, game_start, x, y, j, mode="board", board=board)
+            game_start += 1
+    del datas, labels
+    gc.collect()
+    return board
