@@ -1,7 +1,6 @@
 import numpy as np
 import copy
 from tqdm import tqdm
-import gc
 
 def rotate(matrix):
     n = len(matrix)
@@ -214,7 +213,6 @@ def channel_01(datas, k, x, y, turn):
             if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][1][dx][dy]:
                 if checkDie(dx, dy, 1):
                     del_die(dx, dy, 1)
-    gc.collect()
     return
 
 def channel_2(datas, k):
@@ -300,7 +298,6 @@ def channel_1015(datas, k, x, y, turn, mode="train",board=None):
         counted_empty.clear()
         if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][pp][dx][dy]:
             set_liberty(dx, dy, pp, check_liberty(dx, dy, pp))
-    gc.collect()
     return 
 
 def myaccn(pred, true, n):
@@ -346,6 +343,5 @@ def get_board(games):
                 board[game_start] = board[game_start-1]
                 channel_1015(datas, game_start, x, y, j, mode="board", board=board)
             game_start += 1
-    del datas, labels
-    gc.collect()
+
     return board
