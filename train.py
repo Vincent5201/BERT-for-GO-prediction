@@ -12,20 +12,20 @@ from tools import myaccn
 data_config = {}
 data_config["path"] = 'datas/data_240119.csv'
 data_config["data_size"] = 5000
-data_config["offset"] = 5000
-data_config["data_type"] = "Picture"
+data_config["offset"] = 0
+data_config["data_type"] = "LPicture"
 data_config["data_source"] = "pros"
 data_config["num_moves"] = 240
 data_config["extend"] = False
 
 model_config = {}
-model_config["model_name"] = "ResNet"
+model_config["model_name"] = "LResNet"
 model_config["model_size"] = "mid"
 
 batch_size = 64
 num_epochs = 50
 lr = 5e-4
-device = "cuda:1"
+device = "cuda:0"
 save = True
 random_seed = random.randint(0,100)
 random.seed(random_seed)
@@ -33,8 +33,9 @@ torch.manual_seed(random_seed)
 torch.cuda.manual_seed_all(random_seed)
 print(f'rand_seed:{random_seed}')
 
-path1 = None
-path2 = None
+path2 = "models/BERTex/mid_s63_5000.pt"
+path1 = "models/ResNet/mid_s57_5000.pt"
+path1 = path2 = None
 model = get_model(model_config, path1=path1, path2=path2).to(device)
 if "Combine" in model_config["model_name"]:
     model.m1 = model.m1.to(device)
@@ -55,12 +56,6 @@ for epoch in range(num_epochs):
     for datas in tqdm(train_loader, leave=False):
         optimizer.zero_grad()
         if data_config["data_type"] == "Word":
-            x, m, y = datas
-            x = x.to(device)
-            m = m.to(device)
-            y = y.to(device)
-            pred = model(x, m)
-        elif data_config["data_type"] == "Word_extend":
             x, m, t, y = datas
             x = x.to(device)
             m = m.to(device)
@@ -68,13 +63,14 @@ for epoch in range(num_epochs):
             y = y.to(device)
             pred = model(x, m, t)
         elif data_config["data_type"] == "Combine":
-            xw, m, xp, y = datas
+            xw, m, tt, xp, y = datas
             xw = xw.to(device)
             xp = xp.to(device)
+            tt = tt.to(device)
             m = m.to(device)
             y = y.to(device)
-            pred = model(xw, m, xp)
-        elif data_config["data_type"] == "Picture":
+            pred = model(xw, m, tt, xp)
+        elif "Picture" in data_config["data_type"]:
             x, y = datas
             x = x.to(device)
             y = y.to(device)
@@ -92,12 +88,6 @@ for epoch in range(num_epochs):
     with torch.no_grad():
         for datas in tqdm(test_loader, leave=False):
             if data_config["data_type"] == "Word":
-                x, m, y = datas
-                x = x.to(device)
-                m = m.to(device)
-                y = y.to(device)
-                pred = model(x, m)
-            elif data_config["data_type"] == "Word_extend":
                 x, m, t, y = datas
                 x = x.to(device)
                 m = m.to(device)
@@ -105,13 +95,14 @@ for epoch in range(num_epochs):
                 y = y.to(device)
                 pred = model(x, m, t)
             elif data_config["data_type"] == "Combine":
-                xw, m, xp, y = datas
+                xw, m, tt, xp, y = datas
                 xw = xw.to(device)
                 xp = xp.to(device)
                 m = m.to(device)
+                tt = tt.to(device)
                 y = y.to(device)
-                pred = model(xw, m, xp)
-            elif data_config["data_type"] == "Picture":
+                pred = model(xw, m, tt, xp)
+            elif "Picture" in data_config["data_type"]:
                 x, y = datas
                 x = x.to(device)
                 y = y.to(device)
@@ -125,4 +116,4 @@ for epoch in range(num_epochs):
     print(f'accuracy5:{myaccn(predl,true, 5)}')
     print(f'accuracy:{accuracy_score(preds,true)}')
     if save:
-        torch.save(model.state_dict(), f'/home/F74106165/Language_Go/tmpmodels/model{epoch+1}.pt')
+        torch.save(model.state_dict(), f'/home/F74106165/Language_Go/tmpmodels1/model{epoch+1}.pt')

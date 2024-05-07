@@ -43,7 +43,42 @@ class PicturesDataset(Dataset):
 
     def __len__(self):
         return self.n_samples
+
+class LightPicturesDataset(Dataset):
+    # data loading
+    def __init__(self, games):
+        total_moves = 0
+        for game in games:
+            total_moves += len(game)
+        datas = np.zeros([total_moves,4,19,19],  dtype=np.float32)
+        labels = np.zeros(total_moves)
+        game_start = 0
+        for _, game in tqdm(enumerate(games),total=len(games), leave=False):
+            for j, move in enumerate(game):
+                labels[game_start] = move
+                if j == 0:
+                    datas[game_start][2] = np.ones([19,19])
+                else:
+                    x = int(labels[game_start-1] / 19)
+                    y = int(labels[game_start-1] % 19)
+                    datas[game_start] = datas[game_start-1]
+                    Lchannel_01(datas, game_start, x, y, j)
+                    Lchannel_2(datas, game_start, j)
+                    Lchannel_3(datas, game_start, x, y, j)
+                game_start += 1
     
+        self.x = torch.tensor(datas)
+        self.y = torch.tensor(labels, dtype=torch.long)
+        self.n_samples = total_moves
+
+        gc.collect()
+        
+    def __getitem__(self, index):  
+        return self.x[index], self.y[index]
+
+    def __len__(self):
+        return self.n_samples
+
 class BERTDataset(Dataset):
     # data loading
     def __init__(self, games, num_moves, sort=False, shuffle=False):
@@ -144,6 +179,13 @@ def get_datasets(data_config, split_rate=0.1, train=True):
             else:
                 train_dataset = PicturesDataset(games[split:])
         eval_dataset = PicturesDataset(games[:split])
+    elif data_config["data_type"] == 'LPicture':
+        if train:
+            if data_config["extend"]:
+                train_dataset = LightPicturesDataset(extend(games[split:]))
+            else:
+                train_dataset = LightPicturesDataset(games[split:])
+        eval_dataset = LightPicturesDataset(games[:split])
     elif data_config["data_type"] == "Combine":
         if train:
             train_dataset = CombDataset(games[split:], data_config["num_moves"])

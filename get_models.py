@@ -1,4 +1,4 @@
-from transformers import BertModel, BertConfig, BertForPreTraining
+from transformers import BertModel, BertConfig
 import torch.nn as nn
 import torch
 import yaml
@@ -7,22 +7,6 @@ import torch.nn.functional as F
 class Bert(nn.Module):
     def __init__(self, config, num_labels=361, p_model = None):
         super(Bert, self).__init__()
-        if p_model:
-            self.bert = p_model
-        else:
-            self.bert = BertModel(config)
-        self.linear1 = nn.Linear(config.hidden_size, 512)
-        self.linear2 = nn.Linear(512, num_labels)
-    def forward(self, x, m):
-        output = self.bert(input_ids=x, attention_mask=m)["last_hidden_state"]
-        logits = torch.mean(output, dim=1)
-        logits = self.linear1(logits)
-        logits = self.linear2(logits)
-        return logits
-
-class Bert_extend(nn.Module):
-    def __init__(self, config, num_labels=361, p_model = None):
-        super(Bert_extend, self).__init__()
         if p_model:
             self.bert = p_model
         else:
@@ -89,9 +73,9 @@ class Combine(nn.Module):
             param.requires_grad = False
         self.linear1 = nn.Linear(722, 512)
         self.linear2 = nn.Linear(512, 361)
-    def forward(self, xw, m, xp):
+    def forward(self, xw, m, tt, xp):
         yp = self.m2(xp)
-        yw = self.m1(xw, m)
+        yw = self.m1(xw, m, tt)
         yw = nn.functional.softmax(yw, dim=-1)
         yp = nn.functional.softmax(yp, dim=-1)
         logits = torch.cat((yp, yw), dim=-1)
@@ -126,16 +110,6 @@ def get_model(model_config, path1=None, path2=None):
 
     if model_config["model_name"] == 'BERT':
         args = args["BERT"][model_config["model_size"]]
-        config = BertConfig() 
-        config.hidden_size = args["hidden_size"]
-        config.num_hidden_layers = args["num_hidden_layers"]
-        config.vocab_size = 364
-        config.num_attention_heads = 1
-        config.intermediate_size = config.hidden_size*4
-        config.position_embedding_type = "relative_key"
-        model = Bert(config, 361)
-    elif model_config["model_name"] == 'BERT_extend':
-        args = args["BERT"][model_config["model_size"]]
         config = BertConfig()
         config.type_vocab_size = 7
         config.hidden_size = args["hidden_size"]
@@ -144,29 +118,39 @@ def get_model(model_config, path1=None, path2=None):
         config.num_attention_heads = 1
         config.intermediate_size = config.hidden_size*4
         config.position_embedding_type = "relative_key"
-        model = Bert_extend(config, 361)
+        model = Bert(config, 361)
     elif model_config["model_name"] == 'ResNet':
         args = args["ResNet"][model_config["model_size"]]
         res_channel = args["res_channel"]
         layers = args["layers"]
         in_channel = 16
         model = myResNet(in_channel, res_channel, layers)
+    elif model_config["model_name"] == 'LResNet':
+        args = args["ResNet"][model_config["model_size"]]
+        res_channel = args["res_channel"]
+        layers = args["layers"]
+        in_channel = 4
+        model = myResNet(in_channel, res_channel, layers)
     elif model_config["model_name"] == 'CombineR':
         model_config["model_size"] = "mid"
         model_config["model_name"] = "ResNet"
         model1 = get_model(model_config)
-        model1.load_state_dict(torch.load(path1))
+        if not path1 is None:
+            model1.load_state_dict(torch.load(path1))
         model2 = get_model(model_config)
-        model2.load_state_dict(torch.load(path2))
+        if not path2 is None:
+            model2.load_state_dict(torch.load(path2))
         model = CombineR(model1, model2)
     elif model_config["model_name"] == 'Combine':
         model_config["model_size"] = "mid"
         model_config["model_name"] = "ResNet"
         model1 = get_model(model_config)
-        model1.load_state_dict(torch.load(path1))
+        if not path1 is None:
+            model1.load_state_dict(torch.load(path1))
         model_config["model_name"] = "BERT"
         model2 = get_model(model_config)
-        model2.load_state_dict(torch.load(path2))
+        if not path2 is None:
+            model2.load_state_dict(torch.load(path2))
         model = Combine(modelR=model1, modelB=model2)
     return model
 

@@ -300,6 +300,110 @@ def channel_1015(datas, k, x, y, turn, mode="train",board=None):
             set_liberty(dx, dy, pp, check_liberty(dx, dy, pp))
     return 
 
+def Lchannel_01(datas, k, x, y, turn):
+    #plain1 is black
+    #plain0 is white
+    datas[k][turn%2][x][y] = 1
+    live = set()
+    died = set()
+    def checkDie(x, y, p):
+        ans = True
+        pp = 0 if p else 1
+        if (x, y, p) in live:
+            return False
+        if (x, y, p) in died:
+            return True
+        died.add((x, y, p))
+        directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19:
+                if datas[k][p][dx][dy] == 0 and datas[k][pp][dx][dy] == 0:
+                    #neighbor is empty, alive
+                    live.add((x, y, p))
+                    return False
+                if datas[k][p][dx][dy] == 1:
+                    #neighbor is same, check neighbor is alive or not
+                    #if one neighbor is alive, itself is alive 
+                    ans = ans & checkDie(dx, dy, p)
+        if ans:
+            died.add((x, y, p))
+        else:
+            died.remove((x, y, p))
+            live.add((x, y, p))
+        return ans
+    
+    def del_die(x, y, p):
+        datas[k][p][x][y] = 0
+        datas[k][3][x][y] = 0
+        directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][p][dx][dy]:
+                del_die(dx,dy,p)
+        return
+    
+    directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+    for (dx, dy) in directions:
+        if turn % 2:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][0][dx][dy]:
+                if checkDie(dx, dy, 0):
+                    del_die(dx, dy, 0)
+        else:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][1][dx][dy]:
+                if checkDie(dx, dy, 1):
+                    del_die(dx, dy, 1)
+    return
+
+def Lchannel_2(datas, k, turn):
+    #next turn (all 1/0)
+    datas[k][2] = np.zeros([19,19]) if turn%2 else np.ones([19,19])
+    return
+
+def Lchannel_3(datas, k, x, y, turn,):
+    counted_empty = set()
+    def check_liberty(x, y, p):
+        liberty = 0
+        pp = 0 if p else 1
+        datas[k][p][x][y] = 2
+        directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19:
+                if datas[k][pp][dx][dy] == 0 and datas[k][p][dx][dy] == 0:
+                    if not (dx, dy) in counted_empty:
+                        liberty += 1
+                        counted_empty.add((dx,dy))
+                elif datas[k][p][dx][dy] == 1:
+                    liberty += check_liberty(dx, dy, p)
+       
+        datas[k][p][x][y] = 1        
+        return liberty
+    
+    def set_liberty_plane(x, y, liberty):
+        datas[k][3][x][y] = min(6, liberty)
+        return 
+    
+    def set_liberty(x, y, p, liberty):
+        datas[k][p][x][y] = 2
+        set_liberty_plane(x, y, liberty)
+        directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+        for (dx, dy) in directions:
+            if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][p][dx][dy] == 1:
+                set_liberty(dx, dy, p, liberty)
+        datas[k][p][x][y] = 1
+        return
+    
+    if datas[k][0][x][y] == 0 and datas[k][1][x][y] == 0:
+        return
+    
+    ret = check_liberty(x, y, turn%2)
+    set_liberty(x, y, turn%2, ret)
+    pp = 0 if turn%2 else 1
+    directions = [(x-1, y), (x, y-1), (x+1, y), (x, y+1)]
+    for (dx, dy) in directions:
+        counted_empty.clear()
+        if dx >= 0 and dx < 19 and dy >= 0 and dy < 19 and datas[k][pp][dx][dy]:
+            set_liberty(dx, dy, pp, check_liberty(dx, dy, pp))
+    return 
+
 def myaccn(pred, true, n):
     total = len(true)
     correct = 0
