@@ -14,7 +14,7 @@ def class_correct_moves(predls, trues, n):
     print("start classiy")
     for j, tgt in tqdm(enumerate(trues), total=len(trues), leave=False):
         pos = 0
-        for i, predl in enumerate(predls):
+        for _, predl in enumerate(predls):
             pos *= 2
             sorted_indices = (-(predl[j])).argsort()
             top_k_indices = sorted_indices[:n]  
@@ -55,6 +55,11 @@ def get_data_pred(data_config, models, data_types, device):
         _, testDataP = get_datasets(data_config, train=False)
         test_loaderP = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
         trues = testDataP.y
+    if "LPicture" in data_types:
+        data_config["data_type"] = "LPicture"
+        _, testDataP = get_datasets(data_config, train=False)
+        test_loaderP = DataLoader(testDataP, batch_size=batch_size, shuffle=False)
+        trues = testDataP.y
     if "Combine" in data_types:
         data_config["data_type"] = "Combine"
         _, testDataWP = get_datasets(data_config, train=False)
@@ -66,8 +71,8 @@ def get_data_pred(data_config, models, data_types, device):
             predl, _ = prediction("Word", model, device, test_loaderW)
         elif data_types[i] == "Combine":
             predl, _ = prediction("Combine", model, device, test_loaderWP)
-        elif data_types[i] == "Picture":
-            predl, _ = prediction("Picture", model, device, test_loaderP)
+        elif "Picture" in data_types[i]:
+            predl, _ = prediction(data_types[i], model, device, test_loaderP)
         predls.append(predl)
     
     np.save('analyze_data/predls4.npy', predls)
@@ -118,9 +123,9 @@ def invalid_rate(board, predls, n=1):
             
 
 def score_more(data_config, models, device, score_type):
-    testDataP = None
+
     #testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
-    predls = np.load('analyze_data/predls4_RBRB.npy')
+    predls = np.load('analyze_data/predls4.npy')
     trues = np.load('analyze_data/trues4.npy')
     predls = [predls[2], predls[3]]
     if score_type == "compare_correct":
@@ -131,6 +136,8 @@ def score_more(data_config, models, device, score_type):
         acc = mix_acc(1, predls, trues, "prob_vote")
         print(acc)
     elif score_type == "invalid":
+        data_config["data_type"] = "Picture"
+        _, testDataP = get_datasets(data_config, train=False)
         invalid = invalid_rate(testDataP.x, predls, 1)
         print(invalid)
         invalid = invalid_rate(testDataP.x, predls, 5)
@@ -138,11 +145,11 @@ def score_more(data_config, models, device, score_type):
 
 if __name__ == "__main__":
     data_config = {}
-    data_config["path"] = 'datas/data_240119.csv'
-    data_config["data_size"] = 35000
+    data_config["path"] = 'datas/data_Foxwq_9d.csv'
+    data_config["data_size"] = 50000
     data_config["offset"] = 0
     data_config["data_type"] = "Picture"
-    data_config["data_source"] = "pros"
+    data_config["data_source"] = "foxwq"
     data_config["num_moves"] = 240
     data_config["extend"] = False
 
@@ -150,15 +157,15 @@ if __name__ == "__main__":
     model_config["model_name"] = "ST"
     model_config["model_size"] = "mid"
 
-    device = "cuda:1"
-    score_type = "mix_acc"
+    device = "cuda:0"
+    score_type = "invalid"
 
-    data_types = ['Picture', 'Word', 'Picture', 'Word']
-    model_names = ["ResNet", "BERT", "ResNet", "BERT"] #abc
-    states = [f'models/ResNet/mid_s12_1600.pt',
-              f'models/BERT/mid_s59_10000.pt',
-              f'models/ResNet/mid_s57_5000.pt',
-              f'models/BERT/mid_s27_30000.pt',]
+    data_types = ['LPicture', 'Word', 'LPicture', 'Word']
+    model_names = ["LResNet", "BERT", "LResNet", "BERT"] #abc
+    states = [f'models/LResNet/mid_s14_10000.pt',
+              f'models/BERTex/mid_s37_10000.pt',
+              f'models/LResNet/mid_s27_20000.pt',
+              f'models/BERTex/mid_s45_20000.pt',]
     models = []
     for i in range(len(model_names)):
         model_config["model_name"] = model_names[i]
