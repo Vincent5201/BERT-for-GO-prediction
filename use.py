@@ -12,29 +12,26 @@ def prediction(data_type, model, device, test_loader):
     with torch.no_grad():
         for datas in tqdm(test_loader, leave=False):
             if data_type == "Word":
-                x, m, y = datas
-                x = x.to(device)
-                m = m.to(device)
-                y = y.to(device)
-                pred = model(x, m)
-            elif data_type == "Word_extend":
                 x, m, t, y = datas
                 x = x.to(device)
                 m = m.to(device)
                 t = t.to(device)
                 y = y.to(device)
+                pred = model(x, m, t)
             elif data_type == "Combine":
-                xw, m, xp, y = datas
+                xw, m, tt, xp, y = datas
                 xw = xw.to(device)
                 xp = xp.to(device)
                 m = m.to(device)
+                tt = tt.to(device)
                 y = y.to(device)
-                pred = model(xw, m, xp)
+                pred = model(xw, m, tt, xp)
             else:
                 x, y = datas
                 x = x.to(device)
                 y = y.to(device)
                 pred = model(x)
+            pred = torch.nn.functional.softmax(pred, dim=-1)
             predl.extend(pred.cpu().numpy())
             true.extend(y.cpu().numpy())
 
@@ -45,6 +42,7 @@ def next_moves(data_type, num_moves, model, games, num, device):
     games = [[transfer(step) for step in game] for game in games]
 
     if data_type == 'Word':
+        board = get_board(games)[-1]
         last = 0
         while(last < len(games[0])):
             games[0][last] += 1
@@ -52,13 +50,32 @@ def next_moves(data_type, num_moves, model, games, num, device):
         games[0].append(362)
         while(len(games[0]) < num_moves):
             games[0].append(0)
-        games[0].insert(0, 363)    
-        x = torch.tensor(games).to(device)
+        token_types = np.zeros((1, num_moves))
+        for j, move in enumerate(games[0]):
+            if move == 362:
+                break
+            move -= 1
+            token_types[0][j] = board[int(move/19)][int(move%19)]
+        x = torch.tensor(games, dtype=torch.long).to(device)
         mask = (x != 0).detach().long().to(device)
+        t = torch.tensor(token_types, dtype=torch.long).to(device)
         model.eval()
         with torch.no_grad():
-            pred = model(x, mask)[0]
+            pred = model(x, mask, t)[0]
     
+    elif data_type == 'LPicture':
+        datas = np.zeros([1,4,19,19],  dtype=np.float32)
+        for j, move in enumerate(games[0]):
+            x = int(move/19)
+            y = int(move%19)
+            Lchannel_01(datas, 0, x, y, j+1)
+            Lchannel_3(datas, 0, x, y, j+1)
+        Lchannel_2(datas, 0, len(games[0]))
+        print(datas[0][3])
+        x = torch.tensor(datas).to(device)
+        model.eval()
+        with torch.no_grad():
+            pred = model(x)[0]
     elif data_type == 'Picture':
         datas = np.zeros([1,16,19,19],  dtype=np.float32)
         for j, move in enumerate(games[0]):
@@ -118,20 +135,18 @@ if __name__ == "__main__":
     model_config["model_size"] = "mid"
 
 
-    device = "cuda:0"
-    games = [['dc','pd','cp','pp','nq','eq','qn','np','mp','no','pq','qq','oq','qp','pm','mo',
-              'lp','cq','bq','dp','co','lo','kp','ko','jp','do','cr','dq','cn','dn','cm','oc',
-              'qi','dm','dl','cl','ck','bl','bk','bm','bn','bp','al','el','dk','cd','cc','dd',
-              'ec','br','qf','bc','bb','bd','cg','ed','fc','hc','fd','jc','ff','pk','qk','ql',
-              'pl','qj','rk','pj','rj','pi','qh','bg','bf','cf','df','ch','ce','dg','cf','ek',
-              'ej','fj','ei','fi','eh','ph','pg','og','of','nf','oe','ne','od','nd','pc','qd',
-              'nc','ob','nb','pb','kd','kc','ld','lc','md','ng','mc','je','lf','kg','lg','lh',
-              'kh','jg','mh','li','mi','lj','mj','mg','lk','ji','nk','pe','pf','ol','om','nl',
-              'nm','ml','mm','ll','lm','kl','km','rf','rg','qe','qg','jo','jm','ri','rh','ip',
-              'iq','re','hp','io','hq','rl','si','mk','ro','op','jl','kk','rp','ho','hm','go',
-              'gk','fk','fm','rq','hi','pr','or','ps','os','qr','mr','gr','hr','em','fn','gb',
-              'fb','fo','gq','fr','lb','kb','la','ka','na','hj','gj','gi','ij','hk','gl','ik',
-              'jk','jj','il','ii','hh','jd','gg','gn']]
+    device = "cuda:1"
+    games = [['dd','pp','pc','dp','pe','pf','qf','qg','qq','qe','rf','pq','qp','qo','ro','re',
+              'rg','pd','oe','od','qd','rd','qc','oc','rc','ne','of','qn','rn','nf','og','qm',
+              'rm','qr','rr','pr','ql','ng','oh','pl','qk','cq','fc','pk','pj','ob','nb','ci',
+              'mc','kc','kd','ld','lc','jc','jd','ic','id','md','hc','lb','ib','kb','jq','hd',
+              'he','gd','gc','ge','gf','hf','ie','ff','gg','fe','if','fg','gh','fh','gi','hq',
+              'mq','cc','cd','dc','ec','bd','be','bc','ee','fi','fj','gj','fk','hj','cg','hg',
+              'hh','ig','ih','jg','jh','kg','kh','ke','hl','eb','fb','ej','ek','qj','dj','db',
+              'ea','cj','ck','di','ei','eh','dh','ej','dk','oj','pi','df','cf','ef','de','rj',
+              'rl','bh','bi','bj','bg','ip','ei','dg','ch','ej','jp','bi','ai','ei','ah','aj',
+              'ag','bk','bl','jf','io','ho','hn','in','jo','je','go','jj','ji','kj','ki','lj',
+              'li','mi','mh','nh','ni','mj','nj','nk','oi','ok','ae','hp']]
 
     anses = []
     probs = []
@@ -139,29 +154,19 @@ if __name__ == "__main__":
     data_type = 'Word'
     model_config["model_name"] = "BERT"
     model = get_model(model_config).to(device)
-    state = torch.load(f'models/BERT/mid_s2_7500x4.pt')
+    state = torch.load(f'models/BERTex/mid_s45_20000.pt')
     model.load_state_dict(state)
-    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
+    ans, prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
     ans = [(int(step/19),int(step%19)) for step in ans]
     anses.append(ans)
     probs.append(prob)
-    """
-    data_type = 'Word'
-    model_config["model_name"] = "BERTp"
+    
+    data_type = 'LPicture'
+    model_config["model_name"] = "LResNet"
     model = get_model(model_config).to(device)
-    state = torch.load(f'models/BERT/mid_s27_30000.pt')
+    state = torch.load(f'models/LResNet/mid_s27_20000.pt')
     model.load_state_dict(state)
-    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
-    ans = [(int(step/19),int(step%19)) for step in ans]
-    anses.append(ans)
-    probs.append(prob)
-    """
-    data_type = 'Picture'
-    model_config["model_name"] = "ResNet"
-    model = get_model(model_config).to(device)
-    state = torch.load(f'models/ResNet/mid_10000.pt')
-    model.load_state_dict(state)
-    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 5, device)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
     ans = [(int(step/19),int(step%19)) for step in ans]
     anses.append(ans)
     probs.append(prob)
@@ -175,3 +180,4 @@ if __name__ == "__main__":
                 vote[anses[i][j]] = p
     sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
     print(sorted_vote)
+    
