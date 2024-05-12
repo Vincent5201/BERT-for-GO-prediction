@@ -131,7 +131,7 @@ class BERTDataset(Dataset):
 class CombDataset(Dataset):
     # data loading
     def __init__(self, games, num_moves):
-        picdata = PicturesDataset(games)
+        picdata = LightPicturesDataset(games)
         self.xp = picdata.x
         gc.collect()
         bertdata = BERTDataset(games, num_moves)
