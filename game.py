@@ -4,8 +4,9 @@ import time
 import copy
 import random
 from use import vote_next_move
+import numpy as np
 
-from tools import channel_01, transfer_back
+from tools import Lchannel_01, transfer_back
 
 pygame.init()
 
@@ -38,7 +39,8 @@ RADIUS = 10
 
 running = True
 turn = 1
-board = [[[[0]*(GRID_SIZE + 1) for _ in range(GRID_SIZE + 1)] for _ in range(2)]]
+board = [[[[0]*(GRID_SIZE + 1) for _ in range(GRID_SIZE + 1)] for _ in range(4)]]
+board = np.array(board)
 board_history = []
 text = ""
 games = []
@@ -106,6 +108,7 @@ def reset_game():
         mode = "standby"
         turn = 1
         board = [[[[0]*(GRID_SIZE + 1) for _ in range(GRID_SIZE + 1)] for _ in range(2)]]
+        board = np.array(board)
         text = ""
         games = []
         board_history = []
@@ -145,8 +148,13 @@ while running:
     if time.time()-cool_time > BUTTON_COOLDOWN:
         button_cool = True
     if playing and computer_turn == turn:
-        result, move = vote_next_move([games], "cpu")
-        channel_01(board, 0, result[0], result[1], turn)
+        results, moves = vote_next_move([games], "cpu")
+        tgt = 0
+        while board[0][0][results[tgt][0]][results[tgt][1]] or board[0][1][results[tgt][0]][results[tgt][1]]:
+            tgt += 1
+        result = results[tgt]
+        move = moves[tgt]
+        Lchannel_01(board, 0, result[0], result[1], turn)
         text = f"{result[0]}, {result[1]}"
         games.append(move)
         board_history.append(copy.deepcopy(board))
@@ -161,7 +169,7 @@ while running:
                 if board[0][0][grid_x][grid_y] or board[0][1][grid_x][grid_y]:
                     text = "invalid position"
                 else:
-                    channel_01(board, 0, grid_x, grid_y, turn)
+                    Lchannel_01(board, 0, grid_x, grid_y, turn)
                     text = f"{grid_x}, {grid_y}"
                     games.append(transfer_back(grid_x*19+grid_y))
                     board_history.append(copy.deepcopy(board))

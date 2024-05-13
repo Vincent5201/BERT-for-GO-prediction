@@ -173,9 +173,10 @@ def vote_next_move(games, device):
                 vote[anses[i][j]] += p
             else:
                 vote[anses[i][j]] = p
-    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True)[:1])
-    result = list(sorted_vote.keys())[0]
-    return result, transfer_back(result[0]*19+result[1])
+    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True)[:10])
+    results = list(sorted_vote.keys())
+    moves = [transfer_back(result[0]*19+result[1]) for result in results]
+    return results, moves
 
 
 
