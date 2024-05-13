@@ -430,6 +430,9 @@ def get_board(games):
     total_moves = 0
     for game in games:
         total_moves += len(game)
+    if total_moves == 0:
+        board = np.zeros((1, 19, 19))
+        return board
     labels = np.zeros(total_moves)
     game_start = 0
     board = np.zeros((total_moves, 19, 19))
@@ -447,5 +450,4 @@ def get_board(games):
                 board[game_start] = board[game_start-1]
                 channel_1015(datas, game_start, x, y, j, mode="board", board=board)
             game_start += 1
-
     return board

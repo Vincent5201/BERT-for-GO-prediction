@@ -105,7 +105,7 @@ class CombineR(nn.Module):
         return logits
 
 def get_model(model_config, path1=None, path2=None):
-    with open('modelArgs.yaml', 'r') as file:
+    with open('D:\codes\python\.vscode\Language_Go\modelArgs.yaml', 'r') as file:
         args = yaml.safe_load(file)   
 
     if model_config["model_name"] == 'BERT':
@@ -143,7 +143,7 @@ def get_model(model_config, path1=None, path2=None):
         model = CombineR(model1, model2)
     elif model_config["model_name"] == 'Combine':
         model_config["model_size"] = "mid"
-        model_config["model_name"] = "ResNet"
+        model_config["model_name"] = "LResNet"
         model1 = get_model(model_config)
         if not path1 is None:
             model1.load_state_dict(torch.load(path1))

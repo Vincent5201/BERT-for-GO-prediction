@@ -71,7 +71,6 @@ def next_moves(data_type, num_moves, model, games, num, device):
             Lchannel_01(datas, 0, x, y, j+1)
             Lchannel_3(datas, 0, x, y, j+1)
         Lchannel_2(datas, 0, len(games[0]))
-        print(datas[0][3])
         x = torch.tensor(datas).to(device)
         model.eval()
         with torch.no_grad():
@@ -91,16 +90,17 @@ def next_moves(data_type, num_moves, model, games, num, device):
         with torch.no_grad():
             pred = model(x)[0]
     elif data_type == 'Combine':
-        datas = np.zeros([1,16,19,19],  dtype=np.float32)
+        
+        datas = np.zeros([1,4,19,19],  dtype=np.float32)
         for j, move in enumerate(games[0]):
             x = int(move/19)
             y = int(move%19)
-            channel_01(datas, 0, x, y, j+1)
-            channel_1015(datas, 0, x, y, j+1)
-        channel_2(datas, 0)
-        channel_3(datas, 0, len(games[0]))
-        channel_49(datas, 0, len(games[0])-1, games[0])
+            Lchannel_01(datas, 0, x, y, j+1)
+            Lchannel_3(datas, 0, x, y, j+1)
+        Lchannel_2(datas, 0, len(games[0]))
         xp = torch.tensor(datas).to(device)
+
+        board = get_board(games)[-1]
         last = 0
         while(last < len(games[0])):
             games[0][last] += 1
@@ -108,53 +108,37 @@ def next_moves(data_type, num_moves, model, games, num, device):
         games[0].append(362)
         while(len(games[0]) < num_moves):
             games[0].append(0)
-        xw = torch.tensor(games).to(device)
+        token_types = np.zeros((1, num_moves))
+        for j, move in enumerate(games[0]):
+            if move == 362:
+                break
+            move -= 1
+            token_types[0][j] = board[int(move/19)][int(move%19)]
+        xw = torch.tensor(games, dtype=torch.long).to(device)
         mask = (xw != 0).detach().long().to(device)
+        t = torch.tensor(token_types, dtype=torch.long).to(device)
+
         model.eval()
         with torch.no_grad():
-            pred = model(xw, mask, xp)[0]
+            pred = model(xw, mask, t, xp)[0]
 
     pred = torch.nn.functional.softmax(pred, dim=-1)
     top_indices = np.argsort(pred.cpu().numpy())[-num:]
     return top_indices, torch.tensor([pred[i] for i in top_indices]).numpy()
 
 
-
-if __name__ == "__main__":
-
+def vote_next_move(games, device):
     data_config = {}
-    data_config["path"] = 'datas/data_240119.csv'
-    data_config["data_size"] = 35000
-    data_config["offset"] = 0
-    data_config["data_type"] = "Word"
-    data_config["data_source"] = "pros"
     data_config["num_moves"] = 240
-
     model_config = {}
-    model_config["model_name"] = "BERT"
     model_config["model_size"] = "mid"
-
-
-    device = "cuda:1"
-    games = [['dd','pp','pc','dp','pe','pf','qf','qg','qq','qe','rf','pq','qp','qo','ro','re',
-              'rg','pd','oe','od','qd','rd','qc','oc','rc','ne','of','qn','rn','nf','og','qm',
-              'rm','qr','rr','pr','ql','ng','oh','pl','qk','cq','fc','pk','pj','ob','nb','ci',
-              'mc','kc','kd','ld','lc','jc','jd','ic','id','md','hc','lb','ib','kb','jq','hd',
-              'he','gd','gc','ge','gf','hf','ie','ff','gg','fe','if','fg','gh','fh','gi','hq',
-              'mq','cc','cd','dc','ec','bd','be','bc','ee','fi','fj','gj','fk','hj','cg','hg',
-              'hh','ig','ih','jg','jh','kg','kh','ke','hl','eb','fb','ej','ek','qj','dj','db',
-              'ea','cj','ck','di','ei','eh','dh','ej','dk','oj','pi','df','cf','ef','de','rj',
-              'rl','bh','bi','bj','bg','ip','ei','dg','ch','ej','jp','bi','ai','ei','ah','aj',
-              'ag','bk','bl','jf','io','ho','hn','in','jo','je','go','jj','ji','kj','ki','lj',
-              'li','mi','mh','nh','ni','mj','nj','nk','oi','ok','ae','hp']]
-
     anses = []
     probs = []
-
+    
     data_type = 'Word'
     model_config["model_name"] = "BERT"
     model = get_model(model_config).to(device)
-    state = torch.load(f'models/BERTex/mid_s45_20000.pt')
+    state = torch.load(f'D:\codes\python\.vscode\Language_Go\models\BERTex\mid_s45_20000.pt', map_location=device)
     model.load_state_dict(state)
     ans, prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
     ans = [(int(step/19),int(step%19)) for step in ans]
@@ -164,7 +148,18 @@ if __name__ == "__main__":
     data_type = 'LPicture'
     model_config["model_name"] = "LResNet"
     model = get_model(model_config).to(device)
-    state = torch.load(f'models/LResNet/mid_s27_20000.pt')
+    state = torch.load(f'D:\codes\python\.vscode\Language_Go\models\LResNet\mid_s27_20000.pt', map_location=device)
+    model.load_state_dict(state)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
+    ans = [(int(step/19),int(step%19)) for step in ans]
+    anses.append(ans)
+    probs.append(prob)
+    
+
+    data_type = 'Combine'
+    model_config["model_name"] = "Combine"
+    model = get_model(model_config).to(device)
+    state = torch.load(f'D:\codes\python\.vscode\Language_Go\models\Combine\B20000_R20000.pt', map_location=device)
     model.load_state_dict(state)
     ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
     ans = [(int(step/19),int(step%19)) for step in ans]
@@ -178,6 +173,27 @@ if __name__ == "__main__":
                 vote[anses[i][j]] += p
             else:
                 vote[anses[i][j]] = p
-    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True))
-    print(sorted_vote)
-    
+    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True)[:1])
+    result = list(sorted_vote.keys())[0]
+    return result, transfer_back(result[0]*19+result[1])
+
+
+
+if __name__ == "__main__":
+
+    device = "cpu"
+    games = [['dq','dd','pp','pc','qe','co','od','oc','nd','nc','md','lc','mc','mb','cp','do','ld',
+              'kc','kd','jc','jd','ic','bo','bn','bp','cm','qc','pd','qd','pe','pf','qf','qg',
+              'rf','rg','of','pg','oe','id','hd','he','ge','gd','hc','fd','hf','ie','gf','pb',
+              'ob','ee','cf','de','ce','eg','gh','cd','cc','bd','bc','dc','be','ed','ad','qb',
+              'jg','dd','dh','eh','di','ei','lg','dj','cj','ck','dk','ej','bk','ci','cl','dg',
+              'ch','cg','bh','bg','bi','qq','cb','db','da','ab','ac','af','ae','ea','ca','fb',
+              'gb','gc','hb','og','ng','nf','mf','ne','gj','nh','mg','lb','na','df','bb','aa',
+              'eq','ep','fq','fp','gp','gq','gr','hq','dr','dp','hr','iq','ir','jq','cr','la',
+              'ka','go','jr','kq','kr','lr','lq','mr','lp','mh','nq','nr','oq','or','io','hp',
+              'ko','pa','oa','lh','kh','ki','ji','kj','jj','mq','mp','kk','oo','kf','kg','if',
+              'ig','qm','pm','ql']]
+
+    result, move = vote_next_move(games, device)
+    print(result)
+    print(move)

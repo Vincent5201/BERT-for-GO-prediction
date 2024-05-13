@@ -2,6 +2,8 @@ import pygame
 import sys
 import time
 import copy
+import random
+from use import vote_next_move
 
 from tools import channel_01, transfer_back
 
@@ -32,6 +34,7 @@ BUTTON_HEIGHT = 30
 BUTTON_X = INFO_BOX_X
 BUTTON_Y = INFO_BOX_Y + INFO_BOX_HEIGHT + 20
 BUTTON_COOLDOWN = 0.5
+RADIUS = 10
 
 running = True
 turn = 1
@@ -42,6 +45,9 @@ games = []
 mode = "standby"
 button_cool = True
 cool_time = 0
+turn = 1
+playing = False
+computer_turn = 0
 
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 pygame.display.set_caption("圍棋")
@@ -57,10 +63,10 @@ def draw_board(board):
         for j in range(GRID_SIZE + 1):
             if board[0][0][i][j]:
                 pygame.draw.circle(screen, TRANSPARENT_WHITE,
-                                   (LEFT_TOP + j * GRID_WIDTH, LEFT_TOP + i * GRID_HEIGHT), radius)
+                                   (LEFT_TOP + j * GRID_WIDTH, LEFT_TOP + i * GRID_HEIGHT), RADIUS)
             if board[0][1][i][j]:
                 pygame.draw.circle(screen, TRANSPARENT_BLACK,
-                                   (LEFT_TOP + j * GRID_WIDTH, LEFT_TOP + i * GRID_HEIGHT), radius)
+                                   (LEFT_TOP + j * GRID_WIDTH, LEFT_TOP + i * GRID_HEIGHT), RADIUS)
 
 def get_board_position(mouse_pos):
     grid_y = (mouse_pos[0] - LEFT_TOP + GRID_WIDTH // 2) // GRID_WIDTH
@@ -94,7 +100,7 @@ def draw_button(text, x, y, width, height, action):
 def reset_game():
     global button_cool
     if button_cool:
-        global mode, turn, board, text, games, board_history, cool_time
+        global mode, turn, board, text, games, board_history, cool_time, playing
         button_cool = False
         cool_time = time.time()
         mode = "standby"
@@ -103,6 +109,7 @@ def reset_game():
         text = ""
         games = []
         board_history = []
+        playing = False
 
 def back():
     global button_cool
@@ -115,7 +122,20 @@ def back():
         turn = 0 if turn else 1
         games = games[:-1]
         
+def start():
+    global button_cool
+    if button_cool:
+        global cool_time
+        button_cool = False
+        cool_time = time.time()
+        global text, computer_turn, turn, board, text, games, board_history, playing
+        if len(games):
+            text = "reset first"
+            return
+        computer_turn = random.randint(0,1)
+        playing = True
 
+    
 def quit_game():
     pygame.quit()
     sys.exit()
@@ -124,6 +144,13 @@ while running:
     screen.fill(BACKGROUND_COLOR)
     if time.time()-cool_time > BUTTON_COOLDOWN:
         button_cool = True
+    if playing and computer_turn == turn:
+        result, move = vote_next_move([games], "cpu")
+        channel_01(board, 0, result[0], result[1], turn)
+        text = f"{result[0]}, {result[1]}"
+        games.append(move)
+        board_history.append(copy.deepcopy(board))
+        turn = 0 if turn else 1
     for event in pygame.event.get():
         mouse_pos = pygame.mouse.get_pos()
         grid_x, grid_y = get_board_position(mouse_pos)
@@ -148,17 +175,17 @@ while running:
     draw_button("Reset", BUTTON_X, BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT, reset_game)
     draw_button("Back", BUTTON_X, BUTTON_Y + BUTTON_HEIGHT + 10, BUTTON_WIDTH, BUTTON_HEIGHT, back)
     draw_button("Quit", BUTTON_X, BUTTON_Y + 2 * (BUTTON_HEIGHT + 10), BUTTON_WIDTH, BUTTON_HEIGHT, quit_game)
+    draw_button("Start", BUTTON_X, BUTTON_Y + 3 * (BUTTON_HEIGHT + 10), BUTTON_WIDTH, BUTTON_HEIGHT, start)
     
 
     if grid_x >= 0 and grid_y >= 0 and grid_x <= GRID_SIZE and grid_y <= GRID_SIZE:
-        radius = 10
+        
         if turn:
-            pygame.draw.circle(screen, TRANSPARENT_BLACK, mouse_pos, radius)
+            pygame.draw.circle(screen, TRANSPARENT_BLACK, mouse_pos, RADIUS)
         else:
-            pygame.draw.circle(screen, TRANSPARENT_WHITE, mouse_pos, radius)
+            pygame.draw.circle(screen, TRANSPARENT_WHITE, mouse_pos, RADIUS)
 
 
     pygame.display.flip()
 
-pygame.quit()
-sys.exit()
+quit_game()
