@@ -18,16 +18,16 @@ TRANSPARENT_WHITE = (255, 255, 255, 20)
 BACKGROUND_COLOR = (173, 216, 230)
 BUTTON_COLOR = (100, 100, 100)
 
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
+WINDOW_WIDTH = 1000
+WINDOW_HEIGHT = 660
 GRID_SIZE = 18
-GRID_WIDTH = 550 // GRID_SIZE
-GRID_HEIGHT = 550 // GRID_SIZE
-LEFT_TOP = 20
+GRID_WIDTH = 650 // GRID_SIZE
+GRID_HEIGHT = 650 // GRID_SIZE
+LEFT_TOP = 10
 
 INFO_BOX_WIDTH = 150
 INFO_BOX_HEIGHT = 50
-INFO_BOX_X = 600
+INFO_BOX_X = 700
 INFO_BOX_Y = 130
 
 BUTTON_WIDTH = 80
@@ -44,6 +44,7 @@ board = np.array(board)
 board_history = []
 text = ""
 games = []
+last_move = [-1, -1]
 mode = "standby"
 button_cool = True
 cool_time = 0
@@ -107,7 +108,7 @@ def reset_game():
         cool_time = time.time()
         mode = "standby"
         turn = 1
-        board = [[[[0]*(GRID_SIZE + 1) for _ in range(GRID_SIZE + 1)] for _ in range(2)]]
+        board = [[[[0]*(GRID_SIZE + 1) for _ in range(GRID_SIZE + 1)] for _ in range(4)]]
         board = np.array(board)
         text = ""
         games = []
@@ -131,10 +132,11 @@ def start():
         global cool_time
         button_cool = False
         cool_time = time.time()
-        global text, computer_turn, turn, board, text, games, board_history, playing
+        global text, computer_turn, turn, board, text, games, board_history, playing, mode
         if len(games):
             text = "reset first"
             return
+        mode = "playing"
         computer_turn = random.randint(0,1)
         playing = True
 
@@ -150,10 +152,12 @@ while running:
     if playing and computer_turn == turn:
         results, moves = vote_next_move([games], "cpu")
         tgt = 0
-        while board[0][0][results[tgt][0]][results[tgt][1]] or board[0][1][results[tgt][0]][results[tgt][1]]:
+        while moves[tgt] == last_move[turn] or board[0][0][results[tgt][0]][results[tgt][1]] \
+                            or board[0][1][results[tgt][0]][results[tgt][1]]:
             tgt += 1
         result = results[tgt]
         move = moves[tgt]
+        last_move[turn] = move
         Lchannel_01(board, 0, result[0], result[1], turn)
         text = f"{result[0]}, {result[1]}"
         games.append(move)

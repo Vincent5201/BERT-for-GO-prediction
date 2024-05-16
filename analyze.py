@@ -2,6 +2,8 @@ import numpy as np
 from tqdm import tqdm
 import torch
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+import seaborn as sns  
 
 from get_datasets import get_datasets
 from get_models import get_model
@@ -101,6 +103,23 @@ def plot_moves(counts):
     plt.ylabel('counts')
     plt.show()
 
+def draw_confusion_matrix():
+
+    #predls = np.load('analyze_data/predls3_20000.npy')
+    #true = np.load('analyze_data/trues3.npy')
+    #predl = torch.tensor(predls[1])
+    #preds = torch.max(predl,1).indices
+    
+    #cm = confusion_matrix(true, preds)
+    cm = np.load('D:\codes\python\.vscode\Language_Go\datas\cmB.npy')
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm_normalized, annot=True, fmt=".2f", cmap='Blues', xticklabels=[i for i in range(361)], yticklabels=[i for i in range(361)])
+    plt.ylabel('Actual Label')
+    plt.xlabel('Predicted Label')
+    plt.title('Confusion Matrix')
+    plt.show()
+
 if __name__ == "__main__":
     data_config = {}
     data_config["path"] = 'datas/data_240119.csv'
@@ -125,8 +144,11 @@ if __name__ == "__main__":
     #plot_moves(counts)
     #counts_2 = [0, 1443, 240, 879, 701, 1152, 1497, 1801, 1767, 1875, 1970, 2061, 1997, 2067, 1961, 2039, 1978, 1941, 1937, 1889, 1821, 1833, 1790, 1768, 1794, 1702, 1727, 1667, 1691, 1655, 1625, 1599, 1538, 1583, 1593, 1535, 1585, 1490, 1447, 1529, 1514, 1530, 1483, 1415, 1437, 1451, 1409, 1416, 1433, 1412, 1421, 1368, 1388, 1413, 1346, 1425, 1392, 1400, 1406, 1390, 1383, 1402, 1394, 1350, 1335, 1336, 1316, 1422, 1351, 1324, 1345, 1327, 1319, 1352, 1294, 1348, 1344, 1358, 1303, 1287, 1301, 1320, 1310, 1287, 1275, 1327, 1280, 1286, 1335, 1315, 1285, 1261, 1289, 1314, 1274, 1328, 1291, 1269, 1299, 1261, 1257, 1279, 1297, 1264, 1259, 1294, 1261, 1236, 1252, 1274, 1304, 1299, 1318, 1275, 1330, 1278, 1270, 1264, 1317, 1257, 1303, 1321, 1288, 1397, 1287, 1307, 1319, 1298, 1353, 1292, 1358, 1312, 1337, 1332, 1403, 1362, 1375, 1369, 1326, 1412, 1402, 1383, 1440, 1427, 1410, 1448, 1403, 1466, 1482, 1477, 1499, 1501, 1468, 1438, 1578, 1581, 1555, 1552, 1541, 1623, 1629, 1622, 1641, 1601, 1643, 1665, 1721, 1741, 1750, 1751, 1764, 1762, 1777, 1790, 1830, 1825, 1864, 1894, 1838, 1867, 1875, 1887, 1911, 1963, 2015, 1993, 2016, 1991, 2052, 2020, 2080, 2079, 2132, 2102, 2153, 2107, 2151, 2175, 2158, 2187, 2231, 2243, 2236, 2241, 2242, 2279, 2261, 2340, 2346, 2307, 2382, 2388, 2430, 2405, 2419, 2409, 2447, 2448, 2477, 2489, 2498, 2513, 2529, 2563, 2554, 2576, 2590, 2571, 2619, 2624, 2649, 2645, 2648, 2659, 2712, 2669, 2724, 2711, 2752, 2750]
     #plot_moves(counts_2)
-    mats = np.load('D:\codes\python\.vscode\Language_Go\datas\cos_simi_tmp.npy')
-    tgt = 215
-    mats[tgt][tgt] = 0
-    plot_board(mats[tgt])
+    
+    #mats = np.load('D:\codes\python\.vscode\Language_Go\datas\cos_simi_tmp.npy')
+    #tgt = 215
+    #mats[tgt][tgt] = 0
+    #plot_board(mats[tgt])
+    
+    draw_confusion_matrix()
    

@@ -121,7 +121,9 @@ def next_moves(data_type, num_moves, model, games, num, device):
         model.eval()
         with torch.no_grad():
             pred = model(xw, mask, t, xp)[0]
-
+    if len(games[0]) > 2:
+        ban_move = games[0][-2]
+        pred[ban_move] = -1e9
     pred = torch.nn.functional.softmax(pred, dim=-1)
     top_indices = np.argsort(pred.cpu().numpy())[-num:]
     return top_indices, torch.tensor([pred[i] for i in top_indices]).numpy()
@@ -155,16 +157,6 @@ def vote_next_move(games, device):
     anses.append(ans)
     probs.append(prob)
     
-
-    data_type = 'Combine'
-    model_config["model_name"] = "Combine"
-    model = get_model(model_config).to(device)
-    state = torch.load(f'D:\codes\python\.vscode\Language_Go\models\Combine\B20000_R20000.pt', map_location=device)
-    model.load_state_dict(state)
-    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
-    ans = [(int(step/19),int(step%19)) for step in ans]
-    anses.append(ans)
-    probs.append(prob)
 
     vote = {}
     for i, prob in enumerate(probs):
