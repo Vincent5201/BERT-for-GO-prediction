@@ -4,6 +4,7 @@ import torch
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 import seaborn as sns  
+from sklearn.manifold import TSNE
 
 from get_datasets import get_datasets
 from get_models import get_model
@@ -72,9 +73,12 @@ def check_atari(game, x, y, p):
     return -1
     
 def plot_board(mat):
+    avg = np.mean(mat)
+    print(avg)
+    mat -= avg
     mat = np.array(mat).reshape(19,19)
     cmap = plt.get_cmap('coolwarm')
-    plt.imshow(mat, cmap=cmap)
+    plt.imshow(mat, cmap=cmap, vmax=0.25, vmin=-0.25)
     plt.colorbar()
     plt.show()
 
@@ -103,6 +107,36 @@ def plot_moves(counts):
     plt.ylabel('counts')
     plt.show()
 
+def labels_recall():
+    predls = np.load('analyze_data/predls4.npy')
+    trues = np.load('analyze_data/trues4.npy')
+    predl = torch.tensor(predls[2])
+    preds = torch.max(predl,1).indices
+    count = [0]*361
+    correct = [0]*361
+    for i, true in enumerate(trues):
+        count[true] += 1
+        if preds[i] == true:
+            correct[true] += 1
+
+    ret = [correct[i]/count[i] for i in range(361)]
+    np.save('analyze_data/label_recall.npy', ret)
+
+def labels_precision():
+    predls = np.load('analyze_data/predls4.npy')
+    trues = np.load('analyze_data/trues4.npy')
+    predl = torch.tensor(predls[2])
+    preds = torch.max(predl,1).indices
+    count = [0]*361
+    correct = [0]*361
+    for i, pred in enumerate(preds):
+        count[pred] += 1
+        if trues[i] == pred:
+            correct[pred] += 1
+
+    ret = [correct[i]/count[i] for i in range(361)]
+    np.save('analyze_data/label_precision.npy', ret)
+
 def draw_confusion_matrix():
 
     #predls = np.load('analyze_data/predls3_20000.npy')
@@ -118,6 +152,30 @@ def draw_confusion_matrix():
     plt.ylabel('Actual Label')
     plt.xlabel('Predicted Label')
     plt.title('Confusion Matrix')
+    plt.show()
+
+def draw_embeddings():
+    mats = np.load('D:\codes\python\.vscode\Language_Go\datas\embeddings.npy')
+    print(mats.shape)
+    
+    tsne = TSNE(n_components=3, random_state=42)
+    embeddings_3d = tsne.fit_transform(mats)
+ 
+    colors = plt.cm.rainbow(np.linspace(0, 1, 10))
+
+    colormap = np.zeros((19, 19, 4))
+
+    for i in range(19):
+        for j in range(19):
+            f = (10-min(abs(i-9), abs(j-9)))/10*0.6+0.4
+            colormap[i][j] = colors[max(abs(i-9), abs(j-9))] * f
+
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    for i in range(len(embeddings_3d)):
+        ax.scatter(embeddings_3d[i, 0], embeddings_3d[i, 1], embeddings_3d[i, 2], color=colormap[i // 19, i % 19])
+
+    
     plt.show()
 
 if __name__ == "__main__":
@@ -150,5 +208,9 @@ if __name__ == "__main__":
     #mats[tgt][tgt] = 0
     #plot_board(mats[tgt])
     
-    draw_confusion_matrix()
+    #draw_confusion_matrix()
+    #draw_embeddings()
+
+    mat = np.load('D:\codes\python\.vscode\Language_Go\datas\label_recallR.npy')
+    plot_board(mat)
    
