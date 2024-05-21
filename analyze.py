@@ -2,27 +2,11 @@ import numpy as np
 from tqdm import tqdm
 import torch
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
-import seaborn as sns  
+from math import pow, sqrt
 
 from get_datasets import get_datasets
 from get_models import get_model
 
-def draw_confusion_matrix():
-
-    predls = np.load('analyze_data/predls3_20000.npy')
-    true = np.load('analyze_data/trues3.npy')
-    predl = torch.tensor(predls[0])
-    preds = torch.max(predl,1).indices
-    
-    cm = confusion_matrix(true, preds)
-    np.save('analyze_data/cmR.npy', cm)
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt=".0f", cmap='Blues', xticklabels=[0,1,2,3,4,5,6,7,8,9], yticklabels=[0,1,2,3,4,5,6,7,8,9])
-    plt.ylabel('Actual Label')
-    plt.xlabel('Predicted Label')
-    plt.title('Confusion Matrix')
-    plt.show()
 
 def cosine_similarity(vec1, vec2):
     magnitude_vec1 = np.linalg.norm(vec1)
@@ -40,10 +24,8 @@ def embedding_distance(data_config, model_config, model_path):
     _, testData = get_datasets(data_config, train=False)
     games = torch.stack([testData.x[data_config["num_moves"]*i+data_config["num_moves"]-1]\
                           for i in range(int(len(testData.x)/data_config["num_moves"]))])
-
     model = get_model(model_config)
     model.load_state_dict(torch.load(model_path))
-
     mat = np.zeros((361,361))
     count = np.zeros((361,361))
     model.eval()
@@ -125,9 +107,7 @@ def data_similarity(data_config):
     return counts
 
 def check_atari(game, x, y, p):
-    pp = 1
-    if p:
-        pp = 0
+    pp = 0 if p else 1
     count = 0
     if x > 0 and x < 18 and y > 0 and y < 18:
         if game[p][x-1][y] or game[p][x+1][y] or game[p][x][y-1] or game[p][x][y+1]:
@@ -158,24 +138,14 @@ def find_atari(games, trues):
     pos = [0]*361
     games = games.cpu().numpy()
     for i, game in tqdm(enumerate(games), total=len(games), leave=False):
-        x = int(trues[i]/19)
-        y = int(trues[i]%19)
-        if x > 0 and game[i%2][x-1][y] and game[10][x-1][y]:
-            ret = check_atari(game, x-1, y, i%2)
-            if ret != -1:
-                pos[ret] += 1
-        if x < 18 and game[i%2][x+1][y] and game[10][x+1][y]:
-            ret = check_atari(game, x+1, y, i%2)
-            if ret != -1:
-                pos[ret] += 1
-        if y > 0 and game[i%2][x][y-1] and game[10][x][y-1]:
-            ret = check_atari(game, x, y-1, i%2)
-            if ret != -1:
-                pos[ret] += 1
-        if y < 18 and game[i%2][x][y+1] and game[10][x][y+1]:
-            ret = check_atari(game, x, y+1, i%2)
-            if ret != -1:
-                pos[ret] += 1
+        x = trues[i] // 19
+        y = trues[i] % 19
+        directions = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+        for dx, dy in directions:
+            if dx and dy and dx < 18 and dy < 18 and game[i%2][dx][dy] and game[10][dx][dy]:
+                ret = check_atari(game, dx, dy, i%2)
+                if ret != -1:
+                    pos[ret] += 1
     plot_board(pos)
     return
 
@@ -185,18 +155,18 @@ def analyze_correct():
     total = len(trues)
     models = len(predls)
     n = 1
-    nummoves = 240
+    num_moves = 240
     correct_moves = [[0]*30 for _ in range(models)]
     for i in tqdm(range(total), total=total, leave=False):
-        if i%nummoves:
+        if i % num_moves:
             for j, predl in enumerate(predls):
                 chooses = (-predl[i]).argsort()[:n]
                 if trues[i] in chooses:
-                    xl = int(trues[i-1]/19)
-                    yl = int(trues[i-1]%19)
-                    x = int(trues[i]/19)
-                    y = int(trues[i]%19)
-                    dis = (pow(x-xl, 2) + pow(y-yl, 2)) ** (0.5)
+                    xl = trues[i-1] // 19
+                    yl = trues[i-1] % 19
+                    x = trues[i] // 19
+                    y = trues[i] % 19
+                    dis = sqrt(pow(x-xl, 2) + pow(y-yl, 2))
                     correct_moves[j][int(dis+0.5)] += 1
     print(correct_moves)
 

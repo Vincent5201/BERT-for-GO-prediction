@@ -7,7 +7,6 @@ import random
 from use import prediction
 from get_datasets import get_datasets
 from get_models import get_model
-from tools import *
 
 def class_correct_moves(predls, trues, n):
     records = [[] for _ in range(2**len(predls))]
@@ -24,7 +23,6 @@ def class_correct_moves(predls, trues, n):
     return records
 
 def prob_vote(sorted_indices, sorted_p):
-    
     vote = {}
     for p, indices in enumerate(sorted_indices):
         for q, indice in enumerate(indices):
@@ -75,8 +73,8 @@ def get_data_pred(data_config, models, data_types, device):
             predl, _ = prediction(data_types[i], model, device, test_loaderP)
         predls.append(predl)
     
-    np.save('analyze_data/predls4.npy', predls)
-    np.save('analyze_data/trues4.npy', trues)
+    np.save('analyze_data/predls.npy', predls)
+    np.save('analyze_data/trues.npy', trues)
     return testDataP, testDataW, predls, trues.cpu().numpy()
 
 def mix_acc(n, predls, trues, smart=None):
@@ -114,7 +112,7 @@ def invalid_rate(board, predls, n=1):
             chooses = (-predl[i]).argsort()[:n]
             check = True
             for c in chooses:
-                if board[i][2][int(c/19)][int(c%19)]:
+                if board[i][2][c//19][c%19]:
                     check = False
                     break
             if check:
@@ -124,16 +122,18 @@ def invalid_rate(board, predls, n=1):
 
 def score_more(data_config, models, device, score_type):
 
-    #testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
-    predls = np.load('analyze_data/predls4.npy')
-    trues = np.load('analyze_data/trues4.npy')
-    predls = [predls[2], predls[3]]
+    testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
+    #predls = np.load('analyze_data/predls3_20000.npy')
+    #trues = np.load('analyze_data/trues3.npy')
+    #predls = [predls[0], predls[1]]
     if score_type == "compare_correct":
         records, count = compare_correct(predls, trues, 1)
         print(count)
         #print(records)
     elif score_type == "mix_acc":
         acc = mix_acc(1, predls, trues, "prob_vote")
+        print(acc)
+        acc = mix_acc(5, predls, trues, "prob_vote")
         print(acc)
     elif score_type == "invalid":
         data_config["data_type"] = "Picture"
@@ -158,14 +158,12 @@ if __name__ == "__main__":
     model_config["model_size"] = "mid"
 
     device = "cuda:0"
-    score_type = "invalid"
+    score_type = "mix_acc"
 
-    data_types = ['LPicture', 'Word', 'LPicture', 'Word']
-    model_names = ["LResNet", "BERT", "LResNet", "BERT"] #abc
-    states = [f'models/LResNet/mid_s14_10000.pt',
-              f'models/BERTex/mid_s37_10000.pt',
-              f'models/LResNet/mid_s27_20000.pt',
-              f'models/BERTex/mid_s45_20000.pt',]
+    data_types = ['LPicture', 'Word']
+    model_names = ["LResNet", "BERT"] #abc
+    states = [f'models/LResNet/mid_s74_10000_10000.pt',
+              f'models/BERTex/mid_s45_20000.pt']
     models = []
     for i in range(len(model_names)):
         model_config["model_name"] = model_names[i]

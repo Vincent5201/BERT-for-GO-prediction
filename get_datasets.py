@@ -81,23 +81,21 @@ class LightPicturesDataset(Dataset):
 
 class BERTDataset(Dataset):
     # data loading
-    def __init__(self, games, num_moves, train=False, sort=False, shuffle=False):
+    def __init__(self, games, num_moves, train=False, sort=False):
         p_dataset = get_board(games)
-        if shuffle:
-            games = shuffle_pos(games)
         gamesall = []
         battle_count = 0
         for game in tqdm(games, total = len(games), leave=False):
-            result = stepbystep(game, 1)
+            step_games = stepbystep(game, 1)
             if train:
                 battle_break = []
                 for i in range(1, num_moves):
                     if i > 60 and distance(game[i], game[i-1]) > 5 :
                         battle_break.append(i)
-                shuffled_games, count = shuffle_battle(result, battle_break)
+                shuffled_games, count = shuffle_battle(step_games, battle_break)
                 battle_count += count
                 gamesall.extend(shuffled_games)
-            gamesall.extend(result)
+            gamesall.extend(step_games)
            
         gamesall = np.array(gamesall)
         print("steps finish")
@@ -121,7 +119,7 @@ class BERTDataset(Dataset):
                 if move == 362:
                     break
                 move -= 1
-                token_types[i][j] = board[int(move/19)][int(move%19)]
+                token_types[i][j] = board[move//19][move%19]
 
         self.x = torch.tensor(gamesall, dtype=torch.long)
         self.y = torch.tensor(y, dtype=torch.long)
