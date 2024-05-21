@@ -1,6 +1,8 @@
 import numpy as np
 import copy
 from tqdm import tqdm
+from math import sqrt, pow
+import random
 
 def rotate(matrix):
     n = len(matrix)
@@ -430,9 +432,6 @@ def get_board(games):
     total_moves = 0
     for game in games:
         total_moves += len(game)
-    if total_moves == 0:
-        board = np.zeros((1, 19, 19))
-        return board
     labels = np.zeros(total_moves)
     game_start = 0
     board = np.zeros((total_moves, 19, 19))
@@ -450,4 +449,42 @@ def get_board(games):
                 board[game_start] = board[game_start-1]
                 channel_1015(datas, game_start, x, y, j, mode="board", board=board)
             game_start += 1
+
     return board
+
+
+def distance(m1, m2):
+    if m1 == m2:
+        return 0
+    x1 = m1//19
+    y1 = m1%19
+    x2 = m2//19
+    y2 = m2%19
+    return sqrt(pow(x2-x1,2)+ pow(y2-y1,2))
+
+def shuffle_intervals(game, battle_break, pos):
+    
+    intervals = battle_break[:pos]
+    ranges = [(intervals[i], intervals[i+1]) for i in range(len(intervals) - 1)]
+    np.random.shuffle(ranges)
+    shuffled_game = np.concatenate([game[start:end] for start, end in ranges])
+    game[intervals[0]:intervals[-1]] = shuffled_game
+    return game
+
+def shuffle_battle(games, battle_break):
+    count = 0
+    pos = 0
+    shuffle_games = []
+    if len(battle_break) < 3:
+        return games, 0
+    for i, game in enumerate(games):
+        if pos < len(battle_break):
+            if i == battle_break[pos]:
+                pos += 1
+                if pos > 2 and random.randint(0,1):
+                    shuffle_games.append(shuffle_intervals(game, battle_break, pos))
+                    count += 1
+        else:
+            break
+        
+    return shuffle_games, count

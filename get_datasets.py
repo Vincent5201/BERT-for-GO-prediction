@@ -81,17 +81,27 @@ class LightPicturesDataset(Dataset):
 
 class BERTDataset(Dataset):
     # data loading
-    def __init__(self, games, num_moves, sort=False, shuffle=False):
+    def __init__(self, games, num_moves, train=False, sort=False, shuffle=False):
         p_dataset = get_board(games)
         if shuffle:
             games = shuffle_pos(games)
         gamesall = []
+        battle_count = 0
         for game in tqdm(games, total = len(games), leave=False):
             result = stepbystep(game, 1)
+            if train:
+                battle_break = []
+                for i in range(1, num_moves):
+                    if i > 60 and distance(game[i], game[i-1]) > 5 :
+                        battle_break.append(i)
+                shuffled_games, count = shuffle_battle(result, battle_break)
+                battle_count += count
+                gamesall.extend(shuffled_games)
             gamesall.extend(result)
+           
         gamesall = np.array(gamesall)
         print("steps finish")
-
+        print(battle_count)
         total_steps = gamesall.shape[0]
         y = [0]*(total_steps)
         for i in tqdm(range(total_steps), total=total_steps, leave=False):
@@ -102,7 +112,6 @@ class BERTDataset(Dataset):
             y[i] = gamesall[i][last]-1
             gamesall[i][last] = 362
             if sort:
-                print("sorted")
                 gamesall[i][:last] = sort_alternate(gamesall[i][:last])
         print("data finish")
 
@@ -140,7 +149,7 @@ class CombDataset(Dataset):
         self.tokentype = bertdata.token_types
         self.y = bertdata.y
         self.n_samples = bertdata.n_samples
-        print(bertdata.n_samples == picdata.n_samples)
+        print(torch.equal(bertdata.y, picdata.y))
         gc.collect()
     def __getitem__(self, index):  
         return self.xw[index], self.mask[index], self.tokentype[index], self.xp[index], self.y[index]
@@ -168,9 +177,9 @@ def get_datasets(data_config, split_rate=0.1, train=True):
     if data_config["data_type"] == 'Word':
         if train:
             if data_config["extend"]:
-                train_dataset = BERTDataset(extend(games[split:]),  data_config["num_moves"])
+                train_dataset = BERTDataset(extend(games[split:]),  data_config["num_moves"], train=train)
             else:
-                train_dataset = BERTDataset(games[split:],  data_config["num_moves"])
+                train_dataset = BERTDataset(games[split:],  data_config["num_moves"], train=train)
         eval_dataset = BERTDataset(games[:split],  data_config["num_moves"])
     elif data_config["data_type"] == 'Picture':
         if train:

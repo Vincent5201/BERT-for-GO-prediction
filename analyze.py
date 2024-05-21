@@ -73,12 +73,10 @@ def check_atari(game, x, y, p):
     return -1
     
 def plot_board(mat):
-    avg = np.mean(mat)
-    print(avg)
-    mat -= avg
+
     mat = np.array(mat).reshape(19,19)
     cmap = plt.get_cmap('coolwarm')
-    plt.imshow(mat, cmap=cmap, vmax=0.25, vmin=-0.25)
+    plt.imshow(mat, cmap=cmap, vmin=0.2, vmax=0.6)
     plt.colorbar()
     plt.show()
 
@@ -211,6 +209,8 @@ if __name__ == "__main__":
     #draw_confusion_matrix()
     #draw_embeddings()
 
-    mat = np.load('D:\codes\python\.vscode\Language_Go\datas\label_recallR.npy')
-    plot_board(mat)
-   
+    #mat = np.load('D:\codes\python\.vscode\Language_Go\datas\label_recallB.npy')
+    #plot_board(mat)
+    
+    tgt = np.load('D://codes//python//.vscode//Language_Go//datas//acc30_diff.npy')
+    print(len(tgt))
