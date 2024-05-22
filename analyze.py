@@ -138,7 +138,7 @@ def find_atari(games, trues):
     pos = [0]*361
     games = games.cpu().numpy()
     for i, game in tqdm(enumerate(games), total=len(games), leave=False):
-        x = trues[i] // 19
+        x = int(trues[i] // 19)
         y = trues[i] % 19
         directions = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
         for dx, dy in directions:
@@ -162,9 +162,9 @@ def analyze_correct():
             for j, predl in enumerate(predls):
                 chooses = (-predl[i]).argsort()[:n]
                 if trues[i] in chooses:
-                    xl = trues[i-1] // 19
+                    xl = int(trues[i-1] // 19)
                     yl = trues[i-1] % 19
-                    x = trues[i] // 19
+                    x = int(trues[i] // 19)
                     y = trues[i] % 19
                     dis = sqrt(pow(x-xl, 2) + pow(y-yl, 2))
                     correct_moves[j][int(dis+0.5)] += 1

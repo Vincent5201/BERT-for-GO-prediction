@@ -81,7 +81,7 @@ class LightPicturesDataset(Dataset):
 
 class BERTDataset(Dataset):
     # data loading
-    def __init__(self, games, num_moves, train=False, sort=False):
+    def __init__(self, games, num_moves, train=False):
         p_dataset = get_board(games)
         gamesall = []
         battle_count = 0
@@ -109,8 +109,6 @@ class BERTDataset(Dataset):
             last -= 1
             y[i] = gamesall[i][last]-1
             gamesall[i][last] = 362
-            if sort:
-                gamesall[i][:last] = sort_alternate(gamesall[i][:last])
         print("data finish")
 
         token_types = np.zeros((total_steps, num_moves))
@@ -119,7 +117,7 @@ class BERTDataset(Dataset):
                 if move == 362:
                     break
                 move -= 1
-                token_types[i][j] = board[move//19][move%19]
+                token_types[i][j] = board[int(move//19)][move%19]
 
         self.x = torch.tensor(gamesall, dtype=torch.long)
         self.y = torch.tensor(y, dtype=torch.long)

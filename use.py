@@ -128,6 +128,45 @@ def next_moves(data_type, num_moves, model, games, num, device):
     top_indices = np.argsort(pred.cpu().numpy())[-num:]
     return top_indices, torch.tensor([pred[i] for i in top_indices]).numpy()
 
+def vote_next_move(games, device):
+    data_config = {}
+    data_config["num_moves"] = 240
+    model_config = {}
+    model_config["model_size"] = "mid"
+    anses = []
+    probs = []
+    
+    data_type = 'Word'
+    model_config["model_name"] = "BERT"
+    model = get_model(model_config).to(device)
+    state = torch.load(f'D:\codes\python\.vscode\Language_Go\models\BERTex\mid_s45_20000.pt', map_location=device)
+    model.load_state_dict(state)
+    ans, prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
+    ans = [(int(step/19),int(step%19)) for step in ans]
+    anses.append(ans)
+    probs.append(prob)
+    
+    data_type = 'LPicture'
+    model_config["model_name"] = "LResNet"
+    model = get_model(model_config).to(device)
+    state = torch.load(f'D:\codes\python\.vscode\Language_Go\models\LResNet\mid_s27_20000.pt', map_location=device)
+    model.load_state_dict(state)
+    ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
+    ans = [(int(step/19),int(step%19)) for step in ans]
+    anses.append(ans)
+    probs.append(prob)
+
+    vote = {}
+    for i, prob in enumerate(probs):
+        for j, p in enumerate(prob):
+            if anses[i][j] in vote.keys():
+                vote[anses[i][j]] += p
+            else:
+                vote[anses[i][j]] = p
+    sorted_vote = dict(sorted(vote.items(), key=lambda item: item[1], reverse=True)[:10])
+    results = list(sorted_vote.keys())
+    moves = [transfer_back(result[0]*19+result[1]) for result in results]
+    return results, moves
 
 
 if __name__ == "__main__":

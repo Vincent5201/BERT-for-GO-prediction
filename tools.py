@@ -28,41 +28,6 @@ def check_top_left(step):
 def check_top_right(step):
     return int(step/19) <= (step%19)
 
-def top_left(games):
-    m0 = [[i * 19 + j for j in range(19)] for i in range(19)]
-    mflip = np.transpose(np.array(copy.deepcopy(m0)))
-    m90 = rotate(copy.deepcopy(m0))
-    lgames = []
-    for game in games:
-        if check_top_left(game[0]):
-            if(check_top_right(game[1])):
-                lgames.append(game)
-            else:
-                lgames.append(transformG(game, mflip))
-            continue
-        game = transformG(game, m90)
-        if check_top_left(game[0]):
-            if(check_top_right(game[1])):
-                lgames.append(game)
-            else:
-                lgames.append(transformG(game, mflip))
-            continue
-        game = transformG(game, m90)
-        if check_top_left(game[0]):
-            if(check_top_right(game[1])):
-                lgames.append(game)
-            else:
-                lgames.append(transformG(game, mflip))
-            continue
-        game = transformG(game, m90)
-        if check_top_left(game[0]):
-            if(check_top_right(game[1])):
-                lgames.append(game)
-            else:
-                lgames.append(transformG(game, mflip))
-            continue
-    return lgames
-
 def extend(games):
     m0 = [[i * 19 + j for j in range(19)] for i in range(19)]
     mflip = np.transpose(np.array(copy.deepcopy(m0)))
@@ -72,20 +37,20 @@ def extend(games):
     games270 = []
     gamesf = []
     for game in games:
-        #game90 = transformG(copy.deepcopy(game), m90)
-        #games90.append(game90)
-        #game180 = transformG(copy.deepcopy(game90), m90)
-        #games180.append(game180)
-        #game270 = transformG(copy.deepcopy(game180), m90)
-        #games270.append(game270)
+        game90 = transformG(copy.deepcopy(game), m90)
+        games90.append(game90)
+        game180 = transformG(copy.deepcopy(game90), m90)
+        games180.append(game180)
+        game270 = transformG(copy.deepcopy(game180), m90)
+        games270.append(game270)
         gamef = transformG(copy.deepcopy(game), mflip)
         gamesf.append(gamef)
-        #game90f = transformG(copy.deepcopy(game90), mflip)
-        #gamesf.append(game90f)
-        #game180f = transformG(copy.deepcopy(game180), mflip)
-        #gamesf.append(game180f)
-        #game270f = transformG(copy.deepcopy(game270), mflip)
-        #gamesf.append(game270f)
+        game90f = transformG(copy.deepcopy(game90), mflip)
+        gamesf.append(game90f)
+        game180f = transformG(copy.deepcopy(game180), mflip)
+        gamesf.append(game180f)
+        game270f = transformG(copy.deepcopy(game270), mflip)
+        gamesf.append(game270f)
     games = np.concatenate((np.array(games),np.array(gamesf)), axis=0)
     return games
 
@@ -133,35 +98,6 @@ def stepbystep(game, shift=0):
 
 def get_tensor_memory_size(tensor):
     return tensor.numel() * tensor.element_size()
-
-def shuffle_pos(games):
-    mat = [345, 160, 143, 207, 257, 2, 350, 309, 88, 346, 255, 282, 180, 275, 171, 115, 23, 79, 324, 343, 231, 227, 9, 228,
-    140, 185, 85, 240, 123, 37, 203, 223, 4, 339, 243, 261, 103, 214, 209, 31, 182, 359, 89, 3, 111, 245, 117, 278, 310,
-    70, 330, 307, 148, 306, 217, 69, 54, 100, 64, 82, 284, 74, 179, 329, 186, 105, 222, 201, 220, 305, 41, 297, 76,
-    136, 328, 1, 250, 272, 157, 314, 14, 43, 126, 164, 58, 151, 17, 145, 249, 28, 291, 132, 169, 83, 113, 91, 267, 335,
-    340, 286, 78, 277, 127, 322, 276, 273, 61, 218, 56, 172, 49, 73, 230, 139, 87, 264, 141, 104, 102, 355, 344, 239,
-    313, 176, 51, 259, 106, 236, 39, 352, 177, 166, 29, 338, 241, 337, 81, 327, 146, 129, 22, 165, 260, 281, 234, 158,
-    348, 118, 45, 349, 137, 194, 25, 190, 110, 130, 20, 191, 246, 15, 142, 175, 316, 265, 33, 356, 149, 315, 155,
-    12, 212, 296, 200, 162, 319, 262, 325, 107, 251, 221, 342, 173, 202, 163, 320, 71, 188, 235, 96, 210, 233, 119, 279,
-    174, 333, 92, 68, 292, 323, 244, 247, 204, 13, 248, 192, 354, 30, 287, 99, 147, 258, 205, 304, 332, 229, 303, 122,
-    150, 288, 131, 124, 5, 6, 59, 52, 311, 318, 11, 271, 270, 336, 55, 232, 295, 269, 18, 199, 34, 213, 114, 42, 302,
-    21, 167, 16, 98, 40, 153, 152, 211, 46, 357, 134, 27, 312, 67, 300, 256, 48, 156, 219, 326, 215, 268, 80, 274,
-    195, 263, 77, 154, 35, 63, 86, 144, 84, 44, 159, 242, 301, 72, 38, 125, 331, 317, 120, 112, 196, 65, 293, 47, 237,
-    8, 347, 108, 128, 116, 75, 294, 10, 62, 183, 24, 351, 181, 101, 224, 238, 341, 198, 93, 353, 280, 358, 36, 285,
-    121, 97, 170, 94, 321, 178, 184, 0, 193, 289, 66, 283, 298, 19, 138, 90, 60, 334, 252, 50, 225, 53, 253, 168, 290,
-    254, 266, 189, 7, 57, 206, 308, 197, 32, 133, 135, 187, 161, 26, 226, 299, 109, 95, 216, 208, 360]
-
-    for i, game in enumerate(games):
-        for j, move in enumerate(game):
-            game[j] = mat[move]
-        games[i] = game
-    return games
-
-def sort_alternate(array):
-    result = np.empty(len(array), dtype=array.dtype)
-    result[::2] = np.sort(array[::2])
-    result[1::2] = np.sort(array[1::2])
-    return result
 
 def channel_01(datas, k, x, y, turn):
     #plain1 is black
@@ -432,6 +368,9 @@ def get_board(games):
     total_moves = 0
     for game in games:
         total_moves += len(game)
+    if total_moves == 0:
+        board = np.zeros((1, 19, 19))
+        return board
     labels = np.zeros(total_moves)
     game_start = 0
     board = np.zeros((total_moves, 19, 19))
@@ -442,7 +381,7 @@ def get_board(games):
             if j == 0:
                 datas = np.zeros([1,16,19,19],  dtype=np.float32)
             else:
-                x = int(labels[game_start-1] / 19)
+                x = int(labels[game_start-1] // 19)
                 y = int(labels[game_start-1] % 19)
                 channel_01(datas, 0, x, y, j)
                 channel_2(datas, 0)
@@ -456,14 +395,9 @@ def get_board(games):
 def distance(m1, m2):
     if m1 == m2:
         return 0
-    x1 = m1//19
-    y1 = m1%19
-    x2 = m2//19
-    y2 = m2%19
-    return sqrt(pow(x2-x1,2)+ pow(y2-y1,2))
+    return sqrt(pow(m2//19-m1//19,2)+ pow(m2%19-m1%19,2))
 
 def shuffle_intervals(game, battle_break, pos):
-    
     intervals = battle_break[:pos]
     ranges = [(intervals[i], intervals[i+1]) for i in range(len(intervals) - 1)]
     np.random.shuffle(ranges)
@@ -486,5 +420,4 @@ def shuffle_battle(games, battle_break):
                     count += 1
         else:
             break
-        
     return shuffle_games, count
