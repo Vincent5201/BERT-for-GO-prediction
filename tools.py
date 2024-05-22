@@ -128,7 +128,7 @@ def distance(m1, m2):
     return sqrt(pow(m2//19-m1//19,2)+ pow(m2%19-m1%19,2))
 
 def shuffle_intervals(game, battle_break, pos):
-    intervals = battle_break[:pos]
+    intervals = battle_break[:pos-1]
     ranges = [(intervals[i], intervals[i+1]) for i in range(len(intervals) - 1)]
     np.random.shuffle(ranges)
     shuffled_game = np.concatenate([game[start:end] for start, end in ranges])
@@ -139,14 +139,15 @@ def shuffle_battle(games, battle_break):
     count = 0
     pos = 0
     shuffle_games = []
-    if len(battle_break) < 3:
+    if len(battle_break) < 4:
         return games, 0
     for i, game in enumerate(games):
         if pos < len(battle_break):
             if i == battle_break[pos]:
                 pos += 1
                 if pos > 2 and random.randint(0,1):
-                    shuffle_games.append(shuffle_intervals(game, battle_break, pos))
+                    tmp_game = copy.deepcopy(game)
+                    shuffle_games.append(shuffle_intervals(tmp_game, battle_break, pos))
                     count += 1
         else:
             break
