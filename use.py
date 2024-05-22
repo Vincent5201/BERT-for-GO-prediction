@@ -3,7 +3,8 @@ import torch
 from tqdm import tqdm
 
 from get_models import get_model
-from tools import *
+from tools import transfer, transfer_back
+from resnet_board import *
 
 def prediction(data_type, model, device, test_loader):
     model.eval()

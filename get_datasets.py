@@ -5,6 +5,7 @@ import gc
 from tqdm import tqdm
 from torch.utils.data import Dataset
 from tools import *
+from resnet_board import *
 
 class PicturesDataset(Dataset):
     # data loading

@@ -6,7 +6,8 @@ import random
 from use import vote_next_move
 import numpy as np
 
-from tools import Lchannel_01, transfer_back
+from tools import transfer_back
+from resnet_board import Lchannel_01
 
 pygame.init()
 
