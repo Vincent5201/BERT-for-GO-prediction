@@ -83,24 +83,32 @@ class LightPicturesDataset(Dataset):
 class BERTDataset(Dataset):
     # data loading
     def __init__(self, games, num_moves, train=False):
-        p_dataset = get_board(games)
+        p_dataset = list(get_board(games))
         gamesall = []
+        gamesadd = []
+        p_dataset_add = []
         battle_count = 0
-        for game in tqdm(games, total = len(games), leave=False):
+        for i, game in tqdm(enumerate(games), total = len(games), leave=False):
             step_games = stepbystep(game, 1)
             if train:
                 battle_break = []
-                for i in range(1, num_moves):
-                    if i > 60 and distance(game[i], game[i-1]) > 5 :
-                        battle_break.append(i)
-                shuffled_games, count = shuffle_battle(step_games, battle_break)
+                for j in range(1, num_moves):
+                    if j > 80 and distance(game[j], game[j-1]) > 6 :
+                        battle_break.append(j)
+                shuffled_games, count, tgts = shuffle_battle(step_games, battle_break)
                 battle_count += count
-                gamesall.extend(shuffled_games)
+                gamesadd.extend(shuffled_games)
+                for tgt in tgts:
+                    p_dataset_add.append(copy.deepcopy(p_dataset[i*num_moves+tgt]))
             gamesall.extend(step_games)
-           
+        gamesall.extend(gamesadd)
+        p_dataset.extend(p_dataset_add)
+        
+        p_dataset = np.array(p_dataset)
         gamesall = np.array(gamesall)
         print("steps finish")
         print(battle_count)
+        print(len(p_dataset)==len(gamesall))
         total_steps = gamesall.shape[0]
         y = [0]*(total_steps)
         for i in tqdm(range(total_steps), total=total_steps, leave=False):
@@ -118,7 +126,7 @@ class BERTDataset(Dataset):
                 if move == 362:
                     break
                 move -= 1
-                token_types[i][j] = board[int(move//19)][move%19]
+                token_types[i][j] = board[int(move/19)][int(move%19)]
 
         self.x = torch.tensor(gamesall, dtype=torch.long)
         self.y = torch.tensor(y, dtype=torch.long)

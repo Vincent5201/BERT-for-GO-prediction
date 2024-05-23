@@ -138,17 +138,20 @@ def shuffle_intervals(game, battle_break, pos):
 def shuffle_battle(games, battle_break):
     count = 0
     pos = 0
+    tgts = []
     shuffle_games = []
     if len(battle_break) < 4:
-        return games, 0
+        return shuffle_games, 0 ,tgts
     for i, game in enumerate(games):
         if pos < len(battle_break):
             if i == battle_break[pos]:
                 pos += 1
-                if pos > 2 and random.randint(0,1):
+                if pos > 2:
                     tmp_game = copy.deepcopy(game)
                     shuffle_games.append(shuffle_intervals(tmp_game, battle_break, pos))
+                    tgts.append(i)
                     count += 1
         else:
             break
-    return shuffle_games, count
+
+    return shuffle_games, count, tgts
