@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 from tqdm import tqdm
 import random
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 
 from use import prediction
 from get_datasets import get_datasets
@@ -112,20 +113,36 @@ def invalid_rate(board, predls, n=1):
             chooses = (-predl[i]).argsort()[:n]
             check = True
             for c in chooses:
-                if board[i][2][c//19][c%19]:
+                if board[i][2][int(c/19)][int(c%19)]:
                     check = False
                     break
             if check:
                 invalid[j] += 1
     return [e/total for e in invalid]
-            
 
-def score_more(data_config, models, device, score_type):
+def scores(predls, trues):
+    total = len(trues)
+    preds = []
+    for i in tqdm(range(total), total=total, leave=False):
+        sorted_indices = []
+        sorted_p = []
+        for _, predl in enumerate(predls):
+            sorted_indices.append((-predl[i]).argsort()[:10]) 
+            sorted_p.append(np.sort(predl[i])[::-1][:10])
+        choices = prob_vote(sorted_indices, sorted_p)
+        preds.append(choices[0])
+        
+    print(f'accuracy_socre: {accuracy_score(trues, preds)}')
+    print(f'f1_socre: {f1_score(trues, preds, average="macro")}')
+    print(f'precision_socre: {precision_score(trues, preds, average="macro")}')
+    print(f'recall_socre: {recall_score(trues, preds, average="macro")}')   
 
-    testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
-    #predls = np.load('analyze_data/predls3_20000.npy')
-    #trues = np.load('analyze_data/trues3.npy')
-    #predls = [predls[0], predls[1]]
+def score_more(data_config, models, device, score_type, data_types):
+
+    #testDataP, testDataW, predls, trues = get_data_pred(data_config, models, data_types, device)
+    predls = np.load('analyze_data/predls4.npy')
+    trues = np.load('analyze_data/trues4.npy')
+    predls = [predls[0], predls[1]]
     if score_type == "compare_correct":
         records, count = compare_correct(predls, trues, 1)
         print(count)
@@ -142,6 +159,8 @@ def score_more(data_config, models, device, score_type):
         print(invalid)
         invalid = invalid_rate(testDataP.x, predls, 5)
         print(invalid)
+    elif score_type == "scores":
+        scores(predls, trues)
 
 if __name__ == "__main__":
     data_config = {}
@@ -158,21 +177,24 @@ if __name__ == "__main__":
     model_config["model_size"] = "mid"
 
     device = "cuda:0"
-    score_type = "mix_acc"
-
+    score_type = "scores"
+    models = []
     data_types = ['LPicture', 'Word']
+    """
+    
     model_names = ["LResNet", "BERT"] #abc
     states = [f'models/LResNet/mid_s74_10000_10000.pt',
               f'models/BERTex/mid_s45_20000.pt']
-    models = []
+    
+    
     for i in range(len(model_names)):
         model_config["model_name"] = model_names[i]
         model = get_model(model_config).to(device)
         state = torch.load(states[i])
         model.load_state_dict(state)
         models.append(model)
-
+    """
     #get_data_pred(data_config, models, data_types, device)
-    score_more(data_config, models, device, score_type)
+    score_more(data_config, models, device, score_type, data_types)
    
     
