@@ -9,8 +9,8 @@ BERT for Go Prediction
 
 ## Dataset
 ### Source
-* [Data1](http://sinago.com/qipu/new_gibo.asp): 職業比賽(about 33000 games)
-* [Data2](https://github.com/featurecat/go-dataset): 野狐圍棋中九段玩家的棋局(about 140000 games)
+* Data1:職業比賽(about 33000 games)
+* Data2:野狐圍棋中九段玩家的棋局(about 140000 games)
 
 ### Definitions
 * Train Data: 0~27000 games in Data1
