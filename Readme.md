@@ -2,10 +2,7 @@
 BERT for Go Prediction
 ===
 
-## Abstract
-圍棋 AI 發展至今，一直是使用 ResNet 相關架構，將棋局轉換成圖片來處理。而近年來 Transformer 因為能處理文字序列成為深度學習的主流。.sgf 檔案內容為一串 token，這些 token 屬於一個有361個字的字典，像是一段句子，可以丟進 BERT 訓練！因此我使用 BERT 訓練圍棋落子選點器(圍棋 AI 的前半部分)，並模仿 Alpha Go，訓練了他使用的 ResNet 模型作為比較標準，分析比較兩者的結果。
 
----
 
 ## Dataset
 ### Source
@@ -47,26 +44,13 @@ BERT for Go Prediction
 * 將 token_types_ids 當成 embedding 資訊的管道
 * 若要新增其他資訊，就使用相同方法，將其放入 embedding 層
 
-### Compare
-![image](https://hackmd.io/_uploads/B1KV6yPmC.png =80%x)
-
----
-
 ## Models
 * 做一個 361 分類問題
 * 模型大小: 4.4M parameters
 * 皆沒有預訓練
 
 ### ResNet
-* 使用 Leela zero 的 ResNet 架構
-    * Leela zero 是全球知名圍棋開源專案，實做 Alpha Go 論文
-    * 我擷取其中的"落子選點器"部分模型來使用
-    * 他也曾經做過以"純人類棋譜"訓練的版本，達到 BayesElo 3610分
-        * 換算後為 ELO 2638分
-        * 世界頂尖好手約在 ELO 3600分
-        * 參考我國女子選手俞俐均現為2759分，台灣職業四段
-        * 2638分約為台灣職業三段
-* [Leela zero github](https://github.com/leela-zero/leela-zero)
+* 使用 ResNet 架構
 
 ### BERT
 * 使用 Huggingface 的模型，自訂模型參數
