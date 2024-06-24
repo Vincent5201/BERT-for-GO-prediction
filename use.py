@@ -151,7 +151,7 @@ def vote_next_move(games, device):
     data_type = 'LPicture'
     model_config["model_name"] = "LResNet"
     model = get_model(model_config).to(device)
-    state = torch.load(f'D:\codes\python\.vscode\Language_Go\models\LResNet\mid_s27_20000.pt', map_location=device)
+    state = torch.load(f'D:\codes\python\.vscode\Language_Go\models\LResNet\mid_s65_30000.pt', map_location=device)
     model.load_state_dict(state)
     ans,prob = next_moves(data_type, data_config["num_moves"], model, games, 10, device)
     ans = [(int(step/19),int(step%19)) for step in ans]

@@ -129,8 +129,8 @@ def check_atari(game, x, y, p):
     
 def plot_board(mat):
     mat = np.array(mat).reshape(19,19)
-    cmap = plt.get_cmap('viridis')
-    plt.imshow(mat, cmap=cmap)
+    cmap = plt.get_cmap('coolwarm')
+    plt.imshow(mat, cmap=cmap, vmax=0.45, vmin=-0.2)
     plt.colorbar()
     plt.show()
 
@@ -225,6 +225,11 @@ def RB_test():
     np.save('analyze_data/B5_correct.npy', B_correct)
     np.save('analyze_data/R5_correct.npy', R_correct)
 
+def plot_bins(data):
+    bins = np.arange(-0.25, 0.45, 0.025)
+    plt.hist(data, bins=bins, edgecolor='black')
+    plt.show()
+
 if __name__ == "__main__":
     data_config = {}
     data_config["path"] = 'datas/data_240119.csv'
@@ -248,7 +253,12 @@ if __name__ == "__main__":
     #draw_confusion_matrix()
     #labels_precision()
     #labels_recall()
-    RB_test()
+    #RB_test()
+    mats = np.load("D:\codes\python\.vscode\Language_Go\datas\cos_simi_tmp.npy")
+    p = 216
+    mats[p][p] = 0
+    plot_board(mats[p])
+    plot_bins(mats[p])
     
 
 
