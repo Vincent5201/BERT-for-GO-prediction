@@ -51,7 +51,7 @@ BERT for Go Prediction
 
 ### ResNet
 * 使用 ResNet 架構
-
+https://github.com/leela-zero/leela-zero
 ### BERT
 * 使用 Huggingface 的模型，自訂模型參數
 * 使用 mean of last hidden states 來分類
