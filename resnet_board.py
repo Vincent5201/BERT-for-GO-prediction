@@ -208,7 +208,7 @@ def Lchannel_3(datas, k, x, y, turn,):
         for (dx, dy) in directions:
             if dx >= 0 and dx < 19 and dy >= 0 and dy < 19:
                 if datas[k][pp][dx][dy] == 0 and datas[k][p][dx][dy] == 0:
-                    if not (dx, dy) in counted_empty:
+                    if not ((dx, dy) in counted_empty):
                         liberty += 1
                         counted_empty.add((dx,dy))
                 elif datas[k][p][dx][dy] == 1:

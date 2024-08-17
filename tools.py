@@ -2,8 +2,8 @@ import numpy as np
 import copy
 from tqdm import tqdm
 from math import sqrt, pow
-import random
 
+# rotate 90 degree
 def rotate(matrix):
     n = len(matrix)
     for i in range(n):
@@ -13,6 +13,7 @@ def rotate(matrix):
         matrix[i] = matrix[i][::-1]
     return matrix
 
+# transfer bu map m
 def transformG(game, m):
     length = len(game)
     game = [m[int(move/19)][move%19] for move in game if move]
@@ -28,6 +29,7 @@ def check_top_left(step):
 def check_top_right(step):
     return int(step/19) <= (step%19)
 
+# rotate and flip board
 def extend(games):
     m0 = [[i * 19 + j for j in range(19)] for i in range(19)]
     mflip = np.transpose(np.array(copy.deepcopy(m0)))
@@ -54,6 +56,7 @@ def extend(games):
     games = np.concatenate((np.array(games),np.array(gamesf)), axis=0)
     return games
 
+# check input data
 def check(game, data_source, num_moves):
     first_steps = ["dd", "cd", "dc", "dp", "dq", "cp", "pd", "qd", 
                    "pc", "pp", "pq", "qp","cc", "cq", "qc","qq"]
@@ -99,7 +102,7 @@ def stepbystep(game, shift=0):
 def get_tensor_memory_size(tensor):
     return tensor.numel() * tensor.element_size()
 
-
+# accuracy
 def myaccn(pred, true, n):
     total = len(true)
     correct = 0
@@ -110,6 +113,7 @@ def myaccn(pred, true, n):
             correct += 1
     return correct / total
 
+# accuracy in every length of games
 def myaccn_split(pred, true, n, split, num_move):
     correct = [0]*split
     for i, p in tqdm(enumerate(pred), total=len(pred), leave=False):
@@ -126,32 +130,3 @@ def distance(m1, m2):
     if m1 == m2:
         return 0
     return sqrt(pow(m2//19-m1//19,2)+ pow(m2%19-m1%19,2))
-
-def shuffle_intervals(game, battle_break, pos):
-    intervals = battle_break[:pos-1]
-    ranges = [(intervals[i], intervals[i+1]) for i in range(len(intervals) - 1)]
-    np.random.shuffle(ranges)
-    shuffled_game = np.concatenate([game[start:end] for start, end in ranges])
-    game[intervals[0]:intervals[-1]] = shuffled_game
-    return game
-
-def shuffle_battle(games, battle_break):
-    count = 0
-    pos = 0
-    tgts = []
-    shuffle_games = []
-    if len(battle_break) < 4:
-        return shuffle_games, 0 ,tgts
-    for i, game in enumerate(games):
-        if pos < len(battle_break):
-            if i == battle_break[pos]:
-                pos += 1
-                if pos > 2:
-                    tmp_game = copy.deepcopy(game)
-                    shuffle_games.append(shuffle_intervals(tmp_game, battle_break, pos))
-                    tgts.append(i)
-                    count += 1
-        else:
-            break
-
-    return shuffle_games, count, tgts

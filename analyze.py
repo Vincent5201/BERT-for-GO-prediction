@@ -17,7 +17,8 @@ def cosine_similarity(vec1, vec2):
         similarity = 0
     return similarity
 
-def embedding_distance(data_config, model_config, model_path):
+# caculate each position's embedding_cosine_distance
+def embedding_cosine_distance(data_config, model_config, model_path):
     if data_config["data_type"] != "Word":
         print("wrong data type")
         return
@@ -52,7 +53,8 @@ def embedding_distance(data_config, model_config, model_path):
     
     return mat
 
-def embedding_distance(data_config, model_config, model_path):
+# caculate each position's average embedding value
+def embedding(data_config, model_config, model_path):
     if data_config["data_type"] != "Word":
         print("wrong data type")
         return
@@ -82,29 +84,13 @@ def embedding_distance(data_config, model_config, model_path):
     np.save('analyze_data/embeddings.npy', mat)
     
     return mat
-
-
-def data_similarity(data_config):
-    _, testData = get_datasets(data_config, train=False)
-    games = torch.stack([testData.x[data_config["num_moves"]*i+data_config["num_moves"]-1]\
-                        for i in range(int(len(testData.x)/data_config["num_moves"]))]).cpu().numpy()
-    print(games.shape)
-    counts = [0]*(data_config["num_moves"]+1)
-    records = np.zeros((len(games), 361))
-    for i, game in tqdm(enumerate(games), total=len(games), leave=False):
-        for p in range(19):
-            for q in range(19):
-                if game[0][p][q]:
-                    records[i][19*p+q] = 1
-                elif game[1][p][q]:
-                    records[i][19*p+q] = -1
-    print("records end")
-    for i, record1 in tqdm(enumerate(records), total=len(records), leave=False):
-        for j, record2 in enumerate(records):
-            if j > i:
-                counts[np.sum((record1 != 0) & (record1 == record2))] += 1
-    print(counts)
-    return counts
+    
+def plot_board(mat):
+    mat = np.array(mat).reshape(19,19)
+    cmap = plt.get_cmap('coolwarm')
+    plt.imshow(mat, cmap=cmap, vmax=0.45, vmin=-0.2)
+    plt.colorbar()
+    plt.show()
 
 def check_atari(game, x, y, p):
     pp = 0 if p else 1
@@ -126,13 +112,6 @@ def check_atari(game, x, y, p):
         if count == 3:
             return x*19+y
     return -1
-    
-def plot_board(mat):
-    mat = np.array(mat).reshape(19,19)
-    cmap = plt.get_cmap('coolwarm')
-    plt.imshow(mat, cmap=cmap, vmax=0.45, vmin=-0.2)
-    plt.colorbar()
-    plt.show()
 
 def find_atari(games, trues):
     pos = [0]*361

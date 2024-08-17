@@ -6,7 +6,7 @@ from get_models import get_model
 from tools import transfer, transfer_back
 from resnet_board import *
 
-
+# predict next move of a data loader
 def prediction(data_type, model, device, test_loader):
     model.eval()
     predl = []
@@ -39,10 +39,9 @@ def prediction(data_type, model, device, test_loader):
 
     return predl, true
 
-
+# predict next move
 def next_moves(data_type, num_moves, model, games, num, device):
     games = [[transfer(step) for step in game] for game in games]
-
     if data_type == 'Word':
         board = get_board(games)[-1]
         last = 0
@@ -64,7 +63,6 @@ def next_moves(data_type, num_moves, model, games, num, device):
         model.eval()
         with torch.no_grad():
             pred = model(x, mask, t)[0]
-    
     elif data_type == 'LPicture':
         datas = np.zeros([1,4,19,19],  dtype=np.float32)
         for j, move in enumerate(games[0]):
@@ -92,7 +90,6 @@ def next_moves(data_type, num_moves, model, games, num, device):
         with torch.no_grad():
             pred = model(x)[0]
     elif data_type == 'Combine':
-        
         datas = np.zeros([1,4,19,19],  dtype=np.float32)
         for j, move in enumerate(games[0]):
             x = int(move/19)
@@ -130,6 +127,7 @@ def next_moves(data_type, num_moves, model, games, num, device):
     top_indices = np.argsort(pred.cpu().numpy())[-num:]
     return top_indices, torch.tensor([pred[i] for i in top_indices]).numpy()
 
+# predict next move by soft-voting
 def vote_next_move(games, device):
     data_config = {}
     data_config["num_moves"] = 240
