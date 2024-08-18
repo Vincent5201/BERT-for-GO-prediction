@@ -1,10 +1,13 @@
 import numpy as np
 import torch
 from tqdm import tqdm
+import copy
 
+from evaulates import evaulate
 from get_models import get_model
 from tools import transfer, transfer_back
 from resnet_board import *
+
 
 # predict next move of a data loader
 def prediction(data_type, model, device, test_loader):
@@ -168,6 +171,38 @@ def vote_next_move(games, device):
     moves = [transfer_back(result[0]*19+result[1]) for result in results]
     return results, moves
 
+def evaluate_next_move(games, device, turn):
+    if turn > 0:
+        g1 = copy.deepcopy(games)
+        g2 = copy.deepcopy(games)
+        g3 = copy.deepcopy(games)
+        _, moves = vote_next_move(games, device)
+        g1[0].append(moves[0])
+        g2[0].append(moves[1])
+        g3[0].append(moves[2])
+        v1, g1 = evaluate_next_move(g1, device, turn-1)
+        v2, g2 = evaluate_next_move(g2, device, turn-1)
+        v3, g3 = evaluate_next_move(g3, device, turn-1)
+        if v1 > v2:
+            if v1 > v3:
+                return v1, g1
+            else:
+                return v3, g3
+        else:
+            if v1 > v3:
+                return v2, g2
+            else:
+                if v2 > v3:
+                    return v2, g2
+                else:
+                    return v3, g3
+    else:
+        return evaulate(games), games
+
+def vote_evaluate_next_move(games, device, turn):
+    val, preds = evaluate_next_move(games, device, turn)
+    move = preds[0][len(games[0])]
+    return move, val
 
 if __name__ == "__main__":
 

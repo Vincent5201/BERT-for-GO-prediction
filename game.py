@@ -3,7 +3,7 @@ import sys
 import time
 import copy
 import random
-from use import vote_next_move
+from use import vote_next_move, vote_evaluate_next_move
 import numpy as np
 
 from tools import transfer_back
@@ -151,19 +151,31 @@ while running:
     if time.time()-cool_time > BUTTON_COOLDOWN:
         button_cool = True
     if playing and computer_turn == turn:
-        results, moves = vote_next_move([games], "cpu")
-        tgt = 0
-        while moves[tgt] == last_move[turn] or board[0][0][results[tgt][0]][results[tgt][1]] \
-                            or board[0][1][results[tgt][0]][results[tgt][1]]:
-            tgt += 1
-        result = results[tgt]
-        move = moves[tgt]
-        last_move[turn] = move
-        Lchannel_01(board, 0, result[0], result[1], turn)
-        text = f"{result[0]}, {result[1]}"
-        games.append(move)
-        board_history.append(copy.deepcopy(board))
-        turn = 0 if turn else 1
+        if len(games) < 50:
+            results, moves = vote_next_move([games], "cpu")
+            tgt = 0
+            while moves[tgt] == last_move[turn] or board[0][0][results[tgt][0]][results[tgt][1]] \
+                                or board[0][1][results[tgt][0]][results[tgt][1]]:
+                tgt += 1
+            result = results[tgt]
+            move = moves[tgt]
+            last_move[turn] = move
+            Lchannel_01(board, 0, result[0], result[1], turn)
+            text = f"{result[0]}, {result[1]}"
+            games.append(move)
+            board_history.append(copy.deepcopy(board))
+            turn = 0 if turn else 1
+        else:
+            move, val = vote_evaluate_next_move([games], "cpu", 3)
+            result = (ord(move[0])-97, ord(move[1])-97)
+            last_move[turn] = move
+            Lchannel_01(board, 0, result[0], result[1], turn)
+            text = f"{result[0]}, {result[1]}"
+            games.append(move)
+            board_history.append(copy.deepcopy(board))
+            turn = 0 if turn else 1
+
+
     for event in pygame.event.get():
         mouse_pos = pygame.mouse.get_pos()
         grid_x, grid_y = get_board_position(mouse_pos)

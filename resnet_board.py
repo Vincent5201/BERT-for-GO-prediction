@@ -198,7 +198,7 @@ def Lchannel_2(datas, k, turn):
     datas[k][2] = np.zeros([19,19]) if turn%2 else np.ones([19,19])
     return
 
-def Lchannel_3(datas, k, x, y, turn,):
+def Lchannel_3(datas, k, x, y, turn):
     counted_empty = set()
     def check_liberty(x, y, p):
         liberty = 0
