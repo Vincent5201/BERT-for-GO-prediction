@@ -151,7 +151,7 @@ while running:
     if time.time()-cool_time > BUTTON_COOLDOWN:
         button_cool = True
     if playing and computer_turn == turn:
-        if len(games) < 50:
+        if len(games) < 50 or True:
             results, moves = vote_next_move([games], "cpu")
             tgt = 0
             while moves[tgt] == last_move[turn] or board[0][0][results[tgt][0]][results[tgt][1]] \
