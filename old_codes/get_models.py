@@ -105,7 +105,7 @@ class CombineR(nn.Module):
         return logits
 
 def get_model(model_config, path1=None, path2=None):
-    with open('D:\codes\python\.vscode\Language_Go\modelArgs.yaml', 'r') as file:
+    with open('D:\codes\python\.vscode\Language_Go\old_codes\modelArgs.yaml', 'r') as file:
         args = yaml.safe_load(file)   
 
     if model_config["model_name"] == 'BERT':
