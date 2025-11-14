@@ -2,5 +2,5 @@
 BERT for Go Prediction
 ===
 
-move to [new repo](https://github.com/Vincent5201/Go-on-Bert-and-ResNet/edit/master/README.md)
+move to [new repo](https://github.com/Vincent5201/Go-with-Resnet-and-BERT)
 
